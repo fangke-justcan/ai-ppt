@@ -1,0 +1,263 @@
+/* 交互教程 v2 — 编辑部纸面风（去 AI 味：无渐变、无发光、无 emoji、扁平细线）
+ * 交互先行：进入关卡直接是 demo + 挑战条；讲解以时序注释卡片出现在交互元素旁；
+ * 单屏完成，不翻页。
+ */
+:root {
+  --paper: #f6f3ec;
+  --paper2: #efeadf;
+  --card: #fffdf7;
+  --ink: #211d17;
+  --ink2: #6f665a;
+  --line: #d8d1c2;
+  --line2: #c4bba8;
+  --acc: #bf4d28;      /* 朱红：挑战与强调，全站唯一强调色 */
+  --ok: #3e7a4e;
+  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
+  --sans: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: Consolas, "Courier New", monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.layout { display: flex; height: 100vh; }
+
+/* ---------- 侧边栏：目录 ---------- */
+.sidebar {
+  width: 228px; flex: none;
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  background: var(--paper);
+}
+.side-head { padding: 18px 18px 10px; border-bottom: 1px solid var(--line); }
+.side-head .t { font-family: var(--serif); font-size: 17px; font-weight: 700; letter-spacing: 1px; }
+.side-head .s { font-size: 11px; color: var(--ink2); margin-top: 2px; }
+.side-progress { padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--ink2); display: flex; justify-content: space-between; }
+#toc { flex: 1; overflow-y: auto; padding: 6px 0; }
+.toc-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 18px; cursor: pointer; color: var(--ink2);
+  border-left: 2px solid transparent; user-select: none;
+}
+.toc-item:hover { background: var(--paper2); color: var(--ink); }
+.toc-item.active { border-left-color: var(--acc); color: var(--ink); background: var(--paper2); }
+.toc-item .no { font-family: var(--serif); font-size: 12px; width: 18px; flex: none; }
+.toc-item .nm { font-size: 12.5px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toc-item .dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--line2); flex: none; }
+.toc-item.done .dot { background: var(--ok); border-color: var(--ok); }
+.toc-item.locked { opacity: .38; cursor: not-allowed; }
+.side-foot { padding: 10px 18px; border-top: 1px solid var(--line); font-size: 11px; color: var(--ink2); }
+.side-foot a { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- 主区 ---------- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 14px 26px 10px; overflow: auto; }
+
+.lesson-head { display: flex; align-items: baseline; gap: 12px; }
+.lesson-head .no { font-family: var(--serif); font-size: 13px; color: var(--acc); }
+.lesson-head h1 { font-family: var(--serif); font-size: 21px; font-weight: 700; margin: 0; letter-spacing: .5px; }
+.lesson-head .sub { font-size: 12px; color: var(--ink2); }
+
+/* 挑战条：交互区之上 */
+.goalbar {
+  margin-top: 10px;
+  border: 1px solid var(--ink);
+  border-left: 4px solid var(--acc);
+  background: var(--card);
+  padding: 7px 12px;
+  display: flex; align-items: center; gap: 10px; font-size: 13.5px;
+  position: relative;
+}
+.goalbar .tag {
+  font-family: var(--serif); font-weight: 700; font-size: 12px; color: var(--acc);
+  letter-spacing: 3px; flex: none;
+}
+.goalbar .goal-hint { font-size: 11.5px; color: var(--ink2); }
+.goalbar .status { margin-left: auto; font-size: 11.5px; color: var(--ink2); flex: none; }
+.goalbar.won { border-left-color: var(--ok); }
+.goalbar.won .status { color: var(--ok); font-weight: 700; }
+.stamp {
+  position: absolute; right: 8px; top: 50%;
+  font-family: var(--serif); font-weight: 700; font-size: 15px; color: var(--acc);
+  border: 2.5px solid var(--acc); border-radius: 3px;
+  padding: 1px 8px; letter-spacing: 6px; text-indent: 6px;
+  transform: translateY(-50%) rotate(-7deg);
+  animation: stamp .4s cubic-bezier(.2, 1.5, .4, 1);
+  background: rgba(255, 253, 247, .9);
+}
+@keyframes stamp { from { transform: translateY(-50%) rotate(-7deg) scale(2.2); opacity: 0; } }
+
+/* 舞台：左 demo，右栏 */
+.stage-wrap { position: relative; flex: 1; display: flex; gap: 22px; margin-top: 12px; min-height: 0; }
+.demo-area { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.demo-area .lead { font-size: 12.5px; color: var(--ink2); margin: 0; }
+
+.rail {
+  width: 272px; flex: none;
+  border-left: 1px solid var(--line);
+  padding-left: 18px;
+  display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto;
+}
+.rail h4 {
+  margin: 0 0 6px; font-family: var(--serif); font-size: 12.5px; letter-spacing: 2px;
+  color: var(--ink2); font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 4px;
+}
+
+canvas.demo {
+  background: #14110c; border: 1px solid var(--ink);
+  display: block; max-width: 100%; touch-action: none; cursor: crosshair;
+  border-radius: 2px;
+}
+.demo-grid { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.demo-grid .controls { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 200px; }
+
+.ctl label { font-size: 12px; color: var(--ink2); display: flex; justify-content: space-between; }
+.ctl label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+input[type=range] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 0;
+  background: var(--line2); outline: none; margin: 7px 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 15px; height: 15px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--ink); cursor: pointer;
+}
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  background: var(--card); color: var(--ink); border: 1px solid var(--ink);
+  border-radius: 2px; padding: 5px 13px; font-size: 12.5px; cursor: pointer;
+  font-family: var(--sans); transition: background .12s;
+}
+.btn:hover { background: var(--ink); color: var(--paper); }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.primary:hover { background: var(--acc); border-color: var(--acc); }
+.btn.small { padding: 3px 9px; font-size: 11.5px; }
+.btn.on { background: var(--acc); border-color: var(--acc); color: #fff; }
+.btn:disabled { opacity: .4; cursor: default; }
+select.sel {
+  background: var(--card); color: var(--ink); border: 1px solid var(--ink);
+  border-radius: 2px; padding: 5px 9px; font-size: 12.5px; font-family: var(--sans);
+}
+.readout {
+  border-left: 2px solid var(--line2); padding: 4px 10px;
+  font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums;
+  background: var(--paper2);
+}
+.readout b { color: var(--ink); }
+.readout .ok { color: var(--ok); font-weight: 700; }
+.readout .bad { color: var(--acc); font-weight: 700; }
+.note-small { font-size: 11px; color: var(--ink2); }
+
+/* 水桶（ping-pong） */
+.bucket { text-align: center; font-size: 12px; color: var(--ink2); }
+.bucket.read canvas { outline: 3px solid var(--ok); outline-offset: 2px; }
+.bucket.write canvas { outline: 3px solid var(--acc); outline-offset: 2px; }
+
+/* ---------- 注释卡片（时序讲解，临近锚点） ---------- */
+.note-card {
+  position: absolute; z-index: 40; width: 252px;
+  background: var(--card); border: 1px solid var(--ink);
+  box-shadow: 4px 4px 0 rgba(33, 29, 23, .14);
+  padding: 9px 12px 8px; font-size: 12.5px;
+  animation: notecard .25s ease-out;
+}
+@keyframes notecard { from { opacity: 0; transform: translateY(6px); } }
+.note-card .nh { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.note-card .nno {
+  font-family: var(--serif); font-size: 11px; font-weight: 700; color: var(--paper);
+  background: var(--ink); width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.note-card .ntitle { font-family: var(--serif); font-weight: 700; font-size: 13px; }
+.note-card .nbody { color: var(--ink); }
+.note-card .nbody b { color: var(--acc); }
+.note-card .nfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 7px; }
+.note-card .nauto { font-size: 10.5px; color: var(--ink2); }
+.note-card .close-x { cursor: pointer; color: var(--ink2); font-size: 12px; padding: 0 3px; }
+.note-card .close-x:hover { color: var(--acc); }
+.note-card .caret { position: absolute; width: 9px; height: 9px; background: var(--card); border: 1px solid var(--ink); transform: rotate(45deg); }
+
+/* 讲解 pin（卡片收起后） */
+.pins { display: flex; flex-direction: column; gap: 5px; }
+.pin {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 12px; color: var(--ink2); padding: 2px 0;
+}
+.pin:hover { color: var(--ink); }
+.pin .pno {
+  width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--ink);
+  font-family: var(--serif); font-size: 10.5px; display: flex; align-items: center; justify-content: center;
+  background: var(--card); flex: none; color: var(--ink);
+}
+.pin.open .pno { background: var(--acc); border-color: var(--acc); color: #fff; }
+
+/* ---------- 测验（右栏） ---------- */
+.quiz-q { font-size: 12.5px; font-weight: 700; margin-bottom: 5px; }
+.quiz-opt {
+  padding: 5px 9px; margin: 4px 0; border: 1px solid var(--line2); border-radius: 2px;
+  font-size: 12px; cursor: pointer; background: var(--card);
+}
+.quiz-opt:hover { border-color: var(--ink); }
+.quiz-opt.correct { border-color: var(--ok); color: var(--ok); background: #f0f4ee; }
+.quiz-opt.wrong { border-color: var(--acc); color: var(--acc); }
+.quiz-exp { font-size: 11px; color: var(--ink2); margin: 3px 0 10px; border-left: 2px solid var(--ok); padding-left: 8px; display: none; }
+.quiz-qz.revealed .quiz-exp { display: block; }
+
+/* ---------- 详解（win 后右栏展开） ---------- */
+.details { font-size: 12.5px; }
+.details .metaphor { border-left: 2px solid var(--acc); padding: 2px 10px; margin: 8px 0; color: var(--ink); }
+.details .metaphor .mt { font-family: var(--serif); font-weight: 700; font-size: 11.5px; color: var(--acc); display: block; }
+.details p { margin: 7px 0; }
+.codebox {
+  background: #26221b; color: #e8e2d4; border-radius: 2px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
+  padding: 9px 12px; overflow-x: auto; white-space: pre; margin: 8px 0;
+}
+.codebox .cm { color: #9a8f78; } .codebox .kw { color: #e8b04b; } .codebox .fn { color: #8fb8d8; }
+.code-src { font-size: 10.5px; color: var(--ink2); margin-top: -5px; }
+
+/* ---------- 页脚 ---------- */
+.lesson-foot {
+  margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 14px; font-size: 12.5px;
+}
+.lesson-foot .takeaway { flex: 1; color: var(--ink2); min-width: 0; }
+.lesson-foot .takeaway b { color: var(--ok); font-family: var(--serif); }
+.lesson-foot .takeaway.hidden-untl-win { visibility: hidden; }
+.lesson-foot .nav { display: flex; gap: 8px; flex: none; }
+
+/* 撒花（稀疏墨点） */
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 999; }
+
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+  background: var(--ink); color: var(--paper);
+  border-radius: 2px; padding: 8px 18px; font-size: 12.5px; opacity: 0;
+  transition: all .25s; z-index: 1000; pointer-events: none; max-width: 76vw;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+#err {
+  display: none; background: #4a1512; color: #ffc9c0; padding: 8px 16px;
+  font-size: 12px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 1001;
+  font-family: var(--mono); white-space: pre-wrap;
+}
+
+.badge-line { text-align: center; padding: 18px 8px; border: 1px solid var(--ink); background: var(--card); }
+.badge-line .medal { font-size: 40px; animation: stamp .5s cubic-bezier(.2, 1.5, .4, 1); }
+.badge-line .nm { font-family: var(--serif); font-size: 17px; font-weight: 700; margin-top: 4px; letter-spacing: 2px; }
+.badge-line .ds { font-size: 11.5px; color: var(--ink2); margin-top: 3px; }
+.badge-line a { color: var(--acc); }
+
+@media (max-width: 900px) {
+  .layout { flex-direction: column; height: auto; }
+  .sidebar { width: 100%; height: auto; max-height: 200px; }
+  .main { padding: 12px 14px; }
+  .stage-wrap { flex-direction: column; }
+  .rail { width: 100%; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+}

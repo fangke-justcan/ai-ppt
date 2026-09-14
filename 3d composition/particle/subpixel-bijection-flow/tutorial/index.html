@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>紫金花交互课堂 · Subpixel Bijection Flow</title>
+<link rel="stylesheet" href="style.css">
+<script>
+window.addEventListener('error', function (e) {
+  var el = document.getElementById('err');
+  if (el) { el.style.display = 'block'; el.textContent += '[script error] ' + e.message + ' @ ' + (e.filename || '') + ':' + e.lineno + '\n'; }
+}, false);
+window.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+    var el = document.getElementById('err');
+    if (el) { el.style.display = 'block'; el.textContent += '[resource error] ' + (t.src || t.href) + '\n'; }
+  }
+}, true);
+</script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-head">
+      <div class="t">紫金花交互课堂</div>
+      <div class="s">Subpixel Bijection Flow · 十关</div>
+    </div>
+    <div class="side-progress"><span>目录</span><span id="side-progress">进度 0 / 10</span></div>
+    <div id="toc"></div>
+    <div class="side-foot"><a id="teacher-mode">教师模式</a> · <a id="reset-progress">清空进度</a></div>
+  </aside>
+  <main class="main" id="content"></main>
+</div>
+<canvas id="confetti"></canvas>
+<div id="toast"></div>
+<div id="err"></div>
+<script src="engine.js"></script>
+<script src="lessons/lesson01.js"></script>
+<script src="lessons/lesson02.js"></script>
+<script src="lessons/lesson03.js"></script>
+<script src="lessons/lesson04.js"></script>
+<script src="lessons/lesson05.js"></script>
+<script src="lessons/lesson06.js"></script>
+<script src="lessons/lesson07.js"></script>
+<script src="lessons/lesson08.js"></script>
+<script src="lessons/lesson09.js"></script>
+<script src="lessons/lesson10.js"></script>
+<script>Engine.boot();</script>
+</body>
+</html>

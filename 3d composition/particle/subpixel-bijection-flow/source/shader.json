@@ -1,0 +1,85 @@
+{
+  "shader": {
+    "ver": "0.1",
+    "info": {
+      "id": "73c3R7",
+      "date": "1788899479",
+      "viewed": 66,
+      "name": "Subpixel Bijection Flow",
+      "username": "chronos",
+      "description": "If this works as I expect, then there should be no blurring of pixels/particles. Hand coded from scratch, but developed by learning from Gemini.",
+      "likes": 6,
+      "published": 1,
+      "flags": 32,
+      "usePreview": 0,
+      "tags": [
+        "fluid",
+        "shear",
+        "bijection"
+      ],
+      "hasliked": 0,
+      "parentid": "sXc3zM",
+      "parentname": "Golfed Bijection Flow"
+    },
+    "renderpass": [
+      {
+        "inputs": [
+          {
+            "id": "4dXGR8",
+            "filepath": "/media/previz/buffer00.png",
+            "previewfilepath": "/media/previz/buffer00.png",
+            "type": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": "4dfGRr",
+            "channel": 0
+          }
+        ],
+        "code": "void mainImage( out vec4 O, in vec2 p ) { O = texelFetch(iChannel0, ivec2(p), 0); }",
+        "name": "Image",
+        "description": "",
+        "type": "image"
+      },
+      {
+        "inputs": [
+          {
+            "id": "4dXGR8",
+            "filepath": "/media/previz/buffer00.png",
+            "previewfilepath": "/media/previz/buffer00.png",
+            "type": "buffer",
+            "channel": 0,
+            "sampler": {
+              "filter": "linear",
+              "wrap": "clamp",
+              "vflip": "true",
+              "srgb": "false",
+              "internal": "byte"
+            },
+            "published": 1
+          }
+        ],
+        "outputs": [
+          {
+            "id": "4dXGR8",
+            "channel": 0
+          }
+        ],
+        "code": "float T = 2.*acos(-1.);\n\nfloat D(float c, vec2 t, int i)\n{\n    float P = float(i) * (.5 * sqrt(5.)-.5);  // Golden ratio / Weyl sequence\n    vec2 r = t * 9. * sin(P * T); // Drift - Golden angle\n    t += P;\n    vec2 C = vec2(c * T);          // Ensure continuous boundarties for toroidal wrap\n    C += .5 * sin(C + t * .1);\n    \n    // v.x = amplitude, v.y = frequency, v.z = time multiplier\n    vec3 v = vec3(320., 1., .14); // y component / freq scale must always be int!\n    for(float j = .1; j < .24; j += .02, v *= vec3(.45, 2., -1.1)) // Here as well.\n        r += v.x * cos(v.y * C + v.z * t + j);\n    \n    r = round(r);\n    return r.x - r.y;\n}\n\nvoid mainImage( out vec4 O, in vec2 q )\n{\n    vec3 result = vec3(0);\n    for(int c = 0; c < 3; c++)\n     {\n        vec2 p = q;\n         for(int i = 0; i < 6; i++)\n        p[i&1] = mod(p[i&1] - \n            D((p/iResolution.xy)[~i&1], \n            vec2(iFrame,iFrame-1)/60. + float(c)*.05, i),\n            iResolution[i&1]); // Shift row or col by a constant, with wrap\n        result[c] = texelFetch(iChannel0, ivec2(p), 0)[c];\n    }\n    O = iFrame < 9 ? \n        exp2(4.*sin(vec4(q.x/99.))-4.)  // initialize\n        :\n        \n        vec4(result, 1);\n}",
+        "name": "Buffer A",
+        "description": "",
+        "type": "buffer"
+      }
+    ]
+  }
+}

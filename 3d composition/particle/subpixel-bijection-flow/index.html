@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Subpixel Bijection Flow — 本地 Shadertoy 运行器</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #info {
+    position: fixed; left: 12px; bottom: 10px;
+    font: 12px/1.6 Consolas, monospace; color: #fff;
+    text-shadow: 0 1px 2px #000; opacity: .85;
+    transition: opacity 1s; pointer-events: none; user-select: none;
+  }
+  #info a { color: #9cf; pointer-events: auto; }
+  #info.dim { opacity: 0; }
+  #err {
+    position: fixed; inset: 0; margin: auto; width: min(90vw, 900px); height: min(80vh, 600px);
+    background: #300; color: #fbb; font: 12px/1.5 Consolas, monospace;
+    padding: 16px; overflow: auto; white-space: pre-wrap; display: none; z-index: 10;
+    border: 1px solid #a66;
+  }
+
+  /* ---------- 参数面板 ---------- */
+  #panel {
+    position: fixed; top: 14px; right: 14px; width: 300px;
+    max-height: calc(100vh - 28px);
+    background: rgba(18, 18, 26, .82);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 12px; color: #eee;
+    font: 12px/1.4 "Segoe UI", system-ui, sans-serif;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    display: flex; flex-direction: column; z-index: 20;
+    user-select: none;
+  }
+  #panel.hidden { display: none; }
+  #panelHead {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.1);
+    font-weight: 600; font-size: 13px;
+  }
+  #panelHead .spacer { flex: 1; }
+  #panelHead button {
+    background: rgba(255,255,255,.1); color: #ddd; border: 0;
+    border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 11px;
+  }
+  #panelHead button:hover { background: rgba(255,255,255,.22); }
+  #panelBody { overflow-y: auto; padding: 4px 12px 12px; scrollbar-width: thin; }
+  .group-title {
+    margin: 10px 0 2px; font-size: 11px; font-weight: 700;
+    color: #8ab4ff; letter-spacing: .06em; text-transform: uppercase;
+  }
+  .row { margin: 7px 0 2px; }
+  .row-label { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .row-label .val { color: #ffd28a; font-family: Consolas, monospace; }
+  .row input[type=range] {
+    width: 100%; height: 18px; margin: 0; accent-color: #7aa2ff; cursor: pointer;
+  }
+  #panelOpen {
+    position: fixed; top: 14px; right: 14px; z-index: 19;
+    background: rgba(18, 18, 26, .82); backdrop-filter: blur(12px);
+    color: #eee; border: 1px solid rgba(255,255,255,.18);
+    border-radius: 10px; padding: 8px 14px; cursor: pointer;
+    font: 13px "Segoe UI", system-ui, sans-serif;
+  }
+  #panelOpen.hidden { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">
+  <b>Subpixel Bijection Flow · 紫金花版</b> — 原作 chronos · 本地副本 ·
+  <a href="https://www.shadertoy.com/view/73c3R7" target="_blank">shadertoy.com/view/73c3R7</a><br>
+  中心紫金花：粒子只在花形域内碰撞演化，花外静止 ·
+  空格: 暂停 · R: 重新播种(回到第0帧) · 右上 ⚙: 参数面板
+</div>
+<button id="panelOpen">⚙ 参数</button>
+<div id="panel">
+  <div id="panelHead">
+    参数调节
+    <span class="spacer"></span>
+    <button id="resetBtn">重置</button>
+    <button id="panelClose">✕</button>
+  </div>
+  <div id="panelBody"></div>
+</div>
+<pre id="err"></pre>
+<script>
+"use strict";
+
+/* ---------------- Shadertoy 兼容运行器 (WebGL2) ----------------
+   通道结构（与原作一致）:
+     Image    : iChannel0 = Buffer A 本帧输出 (linear, clamp)
+     Buffer A : iChannel0 = Buffer A 上一帧输出 —— 自反馈模拟，
+                需要 ping-pong 双缓冲（与 fractured-orb 的非反馈 Buffer A 不同）
+   采样器（原作配置 linear+clamp+vflip）：因 shader 只用 texelFetch，
+   过滤/环绕方式实际不参与采样，按原作契约配置即可。
+   在原作基础上新增: 可调参数面板（硬编码常量 → uniform）。
+------------------------------------------------------------------ */
+
+const canvas = document.getElementById('c');
+const errBox = document.getElementById('err');
+const info = document.getElementById('info');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+if (!gl) fail('需要 WebGL2 支持');
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  setTimeout(() => location.reload(), 1200);
+});
+
+/* ================= 可调参数定义 =================
+   默认值 = 紫金花改造版的推荐值；原作行为可通过参数近似还原。
+   uniform 名 / 中文标签 / 范围 / 默认值 / 分组      */
+const PARAMS = [
+  // 紫金花：花形域与种子样式
+  { u: 'uFlowerSize',  label: '花朵大小 (短边比例)', min: 0.05, max: 0.40, step: 0.005, def: 0.16,  group: '紫金花' },
+  { u: 'uPetals',      label: '花瓣数量',           min: 2,    max: 9,    step: 1,     def: 5,     group: '紫金花' },
+  { u: 'uPetalSharp',  label: '花瓣尖锐度',         min: 0.5,  max: 4,    step: 0.05,  def: 1.6,   group: '紫金花' },
+  { u: 'uPetalFloor',  label: '花心包络比例',       min: 0.05, max: 0.60, step: 0.01,  def: 0.25,  group: '紫金花' },
+  { u: 'uCoreSize',    label: '金心半径 (短边比例)', min: 0.01, max: 0.15, step: 0.005, def: 0.055, group: '紫金花' },
+  { u: 'uSpeckle',     label: '粒子密度',           min: 0.1,  max: 0.8,  step: 0.02,  def: 0.38,  group: '紫金花' },
+  { u: 'uPetalVein',   label: '金粒子中脉偏置',     min: 0,    max: 1,    step: 0.05,  def: 0.55,  group: '紫金花' },
+  { u: 'uDisplaceScale', label: '粒子迁移速度',     min: 0,    max: 4,    step: 0.05,  def: 1,     group: '紫金花' },
+  { u: 'uRotSpeed',    label: '整体旋转速度',       min: 0,    max: 0.02, step: 0.001, def: 0.004, group: '紫金花' },
+  { u: 'uBreathAmp',   label: '呼吸幅度 (比例)',    min: 0,    max: 0.12, step: 0.005, def: 0.05,  group: '紫金花' },
+  { u: 'uBreathPeriod', label: '呼吸周期 (帧)',     min: 30,   max: 600,  step: 5,     def: 160,   group: '紫金花' },
+  { u: 'uGlowGain',    label: '压壁金光强度',       min: 0,    max: 1,    step: 0.05,  def: 0.85,  group: '紫金花' },
+  // 剪切场 D() 中的主向量 v = vec3(v.x, v.y, v.z)
+  { u: 'uShearAmp',   label: '错位振幅 v.x',   min: 0,    max: 640,  step: 1,     def: 320,  group: '剪切场' },
+  { u: 'uFreqScale',  label: '频率倍率 v.y',   min: 1,    max: 4,    step: 1,     def: 1,    group: '剪切场' },
+  { u: 'uTimeMul',    label: '时间系数 v.z',   min: -1,   max: 1,    step: 0.01,  def: 0.14, group: '剪切场' },
+  { u: 'uDriftAmp',   label: '黄金角漂移幅度', min: 0,    max: 36,   step: 0.5,   def: 9,    group: '剪切场' },
+  // 谱演化: v *= vec3(衰减, 增长, 增长) —— 每个波项一次
+  { u: 'uAmpDecay',   label: '振幅衰减系数',   min: 0.2,  max: 0.9,  step: 0.01,  def: 0.45, group: '谱演化' },
+  { u: 'uFreqGrow',   label: '频率增长系数',   min: 1,    max: 3,    step: 0.05,  def: 2,    group: '谱演化' },
+  { u: 'uTimeGrow',   label: '时间反向系数',   min: -3,   max: 0,    step: 0.05,  def: -1.1, group: '谱演化' },
+  { u: 'uJStart',     label: '波项起始 j',     min: 0,    max: 0.3,  step: 0.005, def: 0.1,  group: '谱演化' },
+  { u: 'uJEnd',       label: '波项结束 j',     min: 0.05, max: 0.5,  step: 0.005, def: 0.24, group: '谱演化' },
+  { u: 'uJStep',      label: '波项步进 j',     min: 0.005,max: 0.05, step: 0.005, def: 0.02, group: '谱演化' },
+  // 迭代与时间
+  { u: 'uIters',      label: '错位轮数',       min: 1,    max: 16,   step: 1,     def: 6,    group: '迭代与时间' },
+  { u: 'uSpeed',      label: '时间速率 (帧/秒基准)', min: 10, max: 120, step: 1,  def: 60,   group: '迭代与时间' },
+  // 初始化条纹
+  { u: 'uInitScale',  label: '初始条纹尺度',   min: 20,   max: 300,  step: 1,     def: 99,   group: '初始化' },
+  { u: 'uInitExp',    label: '初始对比度',     min: 1,    max: 8,    step: 0.25,  def: 4,    group: '初始化' },
+  { u: 'uInitFrames', label: '初始化帧数',     min: 1,    max: 30,   step: 1,     def: 9,    group: '初始化' },
+];
+
+const state = {};
+for (const p of PARAMS) state[p.u] = p.def;
+
+/* 模型与参数已直接写入 shaders/*.frag（u* uniform），原始源码存档于 source/shader.json 与 *.orig.frag */
+
+const FRAG_HEADER = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform vec3  iResolution;
+uniform float iTime;
+uniform float iTimeDelta;
+uniform int   iFrame;
+uniform float iFrameRate;
+uniform float iSampleRate;
+uniform float iChannelTime[4];
+uniform vec3  iChannelResolution[4];
+uniform vec4  iMouse;
+uniform vec4  iDate;
+uniform sampler2D iChannel0;
+uniform sampler2D iChannel1;
+uniform sampler2D iChannel2;
+uniform sampler2D iChannel3;
+uniform float uFlowerSize;
+uniform float uPetals;
+uniform float uPetalSharp;
+uniform float uPetalFloor;
+uniform float uCoreSize;
+uniform float uPetalVein;
+uniform float uDisplaceScale;
+uniform float uRotSpeed;
+uniform float uBreathAmp;
+uniform float uBreathPeriod;
+uniform float uSpeckle;
+uniform float uGlowGain;
+uniform float uShearAmp;
+uniform float uFreqScale;
+uniform float uTimeMul;
+uniform float uDriftAmp;
+uniform float uAmpDecay;
+uniform float uFreqGrow;
+uniform float uTimeGrow;
+uniform float uJStart;
+uniform float uJEnd;
+uniform float uJStep;
+uniform float uIters;
+uniform float uSpeed;
+uniform float uInitScale;
+uniform float uInitExp;
+uniform float uInitFrames;
+out vec4 outColor;
+#define texture2D texture
+#define HW_PERFORMANCE 1
+`;
+
+const VERT = `#version 300 es
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+function fail(msg) {
+  errBox.style.display = 'block';
+  errBox.textContent += msg + '\n';
+  throw new Error(msg);
+}
+
+function compile(type, src, label) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    fail('== ' + label + ' 编译失败 ==\n' + gl.getShaderInfoLog(sh) + '\n--- 源码 ---\n' + src);
+  }
+  return sh;
+}
+
+function program(fragSrc, label) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, VERT, label + ' : vertex'));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, FRAG_HEADER + fragSrc +
+    '\nvoid main(){ mainImage(outColor, gl_FragCoord.xy); }', label + ' : fragment'));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    fail('== ' + label + ' 链接失败 ==\n' + gl.getProgramInfoLog(p));
+  }
+  const u = {};
+  for (const name of ['iResolution','iTime','iTimeDelta','iFrame','iFrameRate','iSampleRate',
+                      'iChannelTime','iChannelResolution','iMouse','iDate']) {
+    u[name] = gl.getUniformLocation(p, name);
+  }
+  for (const prm of PARAMS) u[prm.u] = gl.getUniformLocation(p, prm.u);
+  return { prog: p, u };
+}
+
+/* ---------- 资源加载 ---------- */
+async function loadText(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(url + ' -> HTTP ' + r.status);
+  return r.text();
+}
+
+/* ---------- Buffer A 自反馈 ping-pong 双缓冲 ----------
+   本 shader 与 fractured-orb 不同：Buffer A 每帧读取自己上一帧的
+   输出（iChannel0 自反馈），因此必须 ping-pong：
+   读 prev 写 cur，帧末交换。数组重分配（窗口缩放）后把 iFrame 归零，
+   让 init 条纹重新播种，避免黑屏。 */
+let bufTex = [null, null], bufFbo = [null, null], bufRead = 0;
+
+function allocBuffers(w, h) {
+  for (let i = 0; i < 2; i++) {
+    if (bufTex[i]) { gl.deleteTexture(bufTex[i]); gl.deleteFramebuffer(bufFbo[i]); }
+    bufTex[i] = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, bufTex[i]);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    bufFbo[i] = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bufFbo[i]);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bufTex[i], 0);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+/* ---------- 参数面板 UI ---------- */
+const panel = document.getElementById('panel');
+const panelOpen = document.getElementById('panelOpen');
+const panelBody = document.getElementById('panelBody');
+const inputs = {};
+
+function fmt(v, step) {
+  if (step >= 1) return String(Math.round(v));
+  const dec = step >= 0.1 ? 2 : 3;
+  return Number(v).toFixed(dec);
+}
+
+function buildPanel() {
+  let lastGroup = null;
+  for (const p of PARAMS) {
+    if (p.group !== lastGroup) {
+      lastGroup = p.group;
+      const h = document.createElement('div');
+      h.className = 'group-title';
+      h.textContent = p.group;
+      panelBody.appendChild(h);
+    }
+    const row = document.createElement('div');
+    row.className = 'row';
+    const lab = document.createElement('div');
+    lab.className = 'row-label';
+    lab.innerHTML = `<span>${p.label}</span><span class="val"></span>`;
+    const val = lab.querySelector('.val');
+    const rng = document.createElement('input');
+    rng.type = 'range';
+    rng.min = p.min; rng.max = p.max; rng.step = p.step; rng.value = p.def;
+    val.textContent = fmt(p.def, p.step);
+    rng.addEventListener('input', () => {
+      state[p.u] = parseFloat(rng.value);
+      val.textContent = fmt(state[p.u], p.step);
+    });
+    row.append(lab, rng);
+    panelBody.appendChild(row);
+    inputs[p.u] = { rng, val, p };
+  }
+}
+
+function resetParams() {
+  for (const p of PARAMS) {
+    state[p.u] = p.def;
+    const inp = inputs[p.u];
+    inp.rng.value = p.def;
+    inp.val.textContent = fmt(p.def, p.step);
+  }
+}
+
+buildPanel();
+document.getElementById('resetBtn').addEventListener('click', resetParams);
+document.getElementById('panelClose').addEventListener('click', () => {
+  panel.classList.add('hidden'); panelOpen.classList.remove('hidden');
+});
+panelOpen.addEventListener('click', () => {
+  panel.classList.remove('hidden'); panelOpen.classList.add('hidden');
+});
+
+/* ---------- 主流程 ---------- */
+let progA, progImg;
+let iFrame = 0, paused = false, lastT = null, fps = 60;
+
+async function main() {
+  const [bufASrc, imgSrc] = await Promise.all([
+    loadText('shaders/bufferA.frag'),
+    loadText('shaders/image.frag'),
+  ]);
+  progA = program(bufASrc, 'Buffer A');
+  progImg = program(imgSrc, 'Image');
+
+  resize();
+  window.addEventListener('resize', resize);
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space') { paused = !paused; e.preventDefault(); }
+    if (e.code === 'KeyR') { iFrame = 0; }   // 重回 init 条纹，流场重新演化
+  });
+  setTimeout(() => info.classList.add('dim'), 6000);
+  requestAnimationFrame(loop);
+}
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+  const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w; canvas.height = h;
+    allocBuffers(w, h);
+    iFrame = 0;   // 缓冲已清空，重新播种（texelFetch 环绕依赖分辨率）
+  }
+}
+
+const date0 = new Date();
+const iDate = [ date0.getFullYear(), date0.getMonth(), date0.getDate(),
+                date0.getHours()*3600 + date0.getMinutes()*60 + date0.getSeconds() ];
+
+function setUniforms(P) {
+  const W = canvas.width, H = canvas.height;
+  gl.uniform3f(P.u.iResolution, W, H, 1/W);
+  gl.uniform1f(P.u.iTime, iFrame / 60);          // 本 shader 不用 iTime，占位即可
+  gl.uniform1f(P.u.iTimeDelta, 1/60);
+  gl.uniform1i(P.u.iFrame, iFrame);
+  gl.uniform1f(P.u.iFrameRate, fps);
+  gl.uniform1f(P.u.iSampleRate, 44100);
+  gl.uniform1fv(P.u.iChannelTime, [0, 0, 0, 0]);
+  gl.uniform4f(P.u.iMouse, 0, 0, 0, 0);
+  gl.uniform4fv(P.u.iDate, iDate);
+  for (const p of PARAMS) gl.uniform1f(P.u[p.u], state[p.u]);
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+  resize();
+
+  const W = canvas.width, H = canvas.height;
+  const now = new Date();
+  iDate[3] = now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds();
+  if (paused) return;              // preserveDrawingBuffer 保住最后一帧
+
+  // ---- Pass 1: Buffer A —— 读上一帧(bufRead) 写本帧(cur)，自反馈模拟 ----
+  const cur = 1 - bufRead;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, bufFbo[cur]);
+  gl.viewport(0, 0, W, H);
+  gl.useProgram(progA.prog);
+  setUniforms(progA);
+  gl.uniform3fv(progA.u.iChannelResolution, [W,H,1, 0,0,0, 0,0,0, 0,0,0]);
+  gl.bindTexture(gl.TEXTURE_2D, bufTex[bufRead]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // ---- Pass 2: Image —— 读本帧刚写好的 Buffer A，输出到屏幕 ----
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, W, H);
+  gl.useProgram(progImg.prog);
+  setUniforms(progImg);
+  gl.uniform3fv(progImg.u.iChannelResolution, [W,H,1, 0,0,0, 0,0,0, 0,0,0]);
+  gl.bindTexture(gl.TEXTURE_2D, bufTex[cur]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  bufRead = cur;
+  iFrame++;
+}
+
+main().catch(e => fail(e.message + '\n' + (e.stack || '')));
+</script>
+</body>
+</html>

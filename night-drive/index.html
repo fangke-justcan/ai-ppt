@@ -1,0 +1,131 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Night Drive — Shader Study</title>
+  <style>
+    :root { color-scheme: dark; --ink:#e9edf2; --muted:#8b96a5; --line:rgba(255,255,255,.12); --panel:rgba(8,12,18,.74); }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#030507; font-family: Georgia, 'Times New Roman', serif; }
+    body { color:var(--ink); }
+    #glcanvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
+    .grain { pointer-events:none; position:fixed; inset:0; opacity:.055; mix-blend-mode:screen; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E"); }
+    .hud { position:fixed; inset:0; pointer-events:none; padding:28px 32px; display:flex; flex-direction:column; justify-content:space-between; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; }
+    .eyebrow { font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing:.22em; text-transform:uppercase; color:#ffb35e; }
+    h1 { margin:8px 0 0; font-size:clamp(34px, 5vw, 76px); font-weight:400; letter-spacing:-.055em; line-height:.9; text-shadow:0 2px 30px rgba(0,0,0,.5); }
+    .meta { text-align:right; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:var(--muted); letter-spacing:.08em; }
+    .meta strong { color:#dbe2ea; font-weight:500; }
+    .bottom { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; }
+    .caption { max-width:440px; color:#c0c8d2; font-size:15px; line-height:1.45; text-shadow:0 2px 20px #000; }
+    .caption em { color:#ffbf79; font-style:normal; }
+    .controls { pointer-events:auto; display:flex; gap:8px; align-items:center; padding:7px; border:1px solid var(--line); border-radius:999px; background:var(--panel); backdrop-filter:blur(14px); box-shadow:0 10px 40px rgba(0,0,0,.25); }
+    .panel { pointer-events:auto; position:fixed; z-index:5; top:28px; right:32px; width:min(320px, calc(100vw - 40px)); max-height:calc(100vh - 56px); overflow:auto; padding:18px; border:1px solid var(--line); border-radius:18px; background:rgba(8,12,18,.88); backdrop-filter:blur(18px); box-shadow:0 18px 60px rgba(0,0,0,.45); transform:translateX(calc(100% + 42px)); opacity:0; transition:.28s ease; }
+    .panel.open { transform:translateX(0); opacity:1; }
+    .panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .panel-title { font:600 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing:.18em; text-transform:uppercase; color:#ffb35e; }
+    .panel-close { padding:2px 6px; font-size:18px; line-height:1; color:var(--muted); }
+    .section { border-top:1px solid var(--line); }
+    .section summary { cursor:pointer; list-style:none; padding:14px 0 10px; font:600 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing:.16em; text-transform:uppercase; color:#dce3ec; }
+    .section summary::-webkit-details-marker { display:none; }
+    .section summary::after { content:'+'; float:right; color:#ffb35e; font-size:14px; line-height:10px; }
+    .section[open] summary::after { content:'−'; }
+    .param { margin:7px 0 15px; }
+    .param-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:8px; font:11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#cfd7e2; }
+    .param-row output { color:#ffbf79; }
+    input[type=range] { width:100%; accent-color:#ff9c45; cursor:pointer; }
+    .reset { width:100%; margin-top:12px; border:1px solid var(--line); }
+    button, select { appearance:none; border:0; color:#dce3ec; background:transparent; font:11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing:.08em; text-transform:uppercase; }
+    button { cursor:pointer; padding:10px 13px; border-radius:999px; transition:.2s ease; }
+    button:hover { color:#fff; background:rgba(255,255,255,.1); }
+    select { cursor:pointer; padding:10px 8px 10px 12px; outline:0; }
+    .dot { width:6px; height:6px; border-radius:50%; background:#ff9c45; box-shadow:0 0 14px #ff7f1f; display:inline-block; margin-right:7px; }
+    @media (max-width:680px) { .hud { padding:20px; } .meta { display:none; } .bottom { align-items:flex-start; flex-direction:column; } .caption { font-size:13px; max-width:300px; } .controls { align-self:stretch; justify-content:space-between; } button { padding:9px 10px; } .panel { top:20px; right:20px; max-height:calc(100vh - 40px); } }
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+  <div class="grain"></div>
+  <main class="hud">
+    <div class="top">
+      <div><div class="eyebrow"><span class="dot"></span>fragment study / 2017</div><h1>Night<br>Drive</h1></div>
+      <div class="meta"><strong>THE DRIVE HOME</strong><br>rain / bokeh / motion<br><span id="fps">WEBGL2 · LIVE</span></div>
+    </div>
+    <div class="bottom">
+      <div class="caption">A small local study of rain-streaked glass and distant traffic lights — built from a single fragment shader, running entirely in your browser.</div>
+      <div class="controls"><button id="pause">Pause</button><button id="tune">Tune</button><button id="fullscreen">Fullscreen</button><select id="quality" aria-label="Quality"><option value="1">High quality</option><option value="0">Performance</option></select></div>
+    </div>
+  </main>
+  <aside class="panel" id="panel" aria-label="Shader parameters">
+    <div class="panel-head"><div class="panel-title">Live parameters</div><button class="panel-close" id="close-panel" aria-label="Close parameters">×</button></div>
+    <details class="section" open><summary>Motion</summary>
+      <div class="param"><div class="param-row"><span>Animation speed</span><output id="speed-value">1.00×</output></div><input id="speed" type="range" min="0" max="2" step="0.01" value="1" /></div>
+      <div class="param"><div class="param-row"><span>Camera shake</span><output id="shake-value">1.00×</output></div><input id="shake" type="range" min="0" max="2" step="0.01" value="1" /></div>
+    </details>
+    <details class="section" open><summary>Atmosphere</summary>
+      <div class="param"><div class="param-row"><span>Rain density</span><output id="rain-value">1.00×</output></div><input id="rain" type="range" min="0.45" max="1.8" step="0.01" value="1" /></div>
+      <div class="param"><div class="param-row"><span>Light intensity</span><output id="light-value">1.00×</output></div><input id="light" type="range" min="0.3" max="2.2" step="0.01" value="1" /></div>
+      <div class="param"><div class="param-row"><span>Milky ↔ transparent</span><output id="milk-value">50%</output></div><input id="milk" type="range" min="0" max="1" step="0.01" value="0.5" /></div>
+    </details>
+    <details class="section"><summary>Rendering</summary>
+      <div class="param"><div class="param-row"><span>Exposure</span><output id="exposure-value">1.00×</output></div><input id="exposure" type="range" min="0.4" max="1.8" step="0.01" value="1" /></div>
+    </details>
+    <button class="reset" id="reset">Reset defaults</button>
+  </aside>
+  <script>
+    const canvas = document.getElementById('glcanvas');
+    const gl = canvas.getContext('webgl2', { antialias:false, alpha:false });
+    if (!gl) { document.body.innerHTML = '<p style="padding:2rem;color:white;font-family:monospace">WebGL2 is required for this study.</p>'; throw new Error('WebGL2 unavailable'); }
+    const vertexSource = `#version 300 es\nprecision highp float;\nin vec2 aPosition;\nvoid main(){ gl_Position=vec4(aPosition,0.,1.); }`;
+    const fragmentSource = `#version 300 es
+precision highp float;
+out vec4 outColor;
+uniform vec2 iResolution;
+uniform float iTime;
+uniform float uQuality;
+uniform float uRain;
+uniform float uLight;
+uniform float uShake;
+uniform float uExposure;
+uniform float uMilkiness;
+#define S(x,y,z) smoothstep(x,y,z)
+#define sat(x) clamp(x,0.,1.)
+#define streetLightCol vec3(1.,.7,.3)
+#define headLightCol vec3(.8,.8,1.)
+#define tailLightCol vec3(1.,.1,.1)
+vec3 ro,rd;
+float N(float t){return fract(sin(t*10234.324)*123423.23512);}
+vec3 N31(float p){vec3 p3=fract(vec3(p)*vec3(.1031,.11369,.13787));p3+=dot(p3,p3.yzx+19.19);return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));}
+float DistLine(vec3 a,vec3 b,vec3 p){return length(cross(p-a,b));}
+float BokehMask(vec3 a,vec3 b,vec3 p,float size,float blur){float d=DistLine(a,b,p);float m=S(size,size*(1.-blur),d);return m*mix(.7,1.,S(.8*size,size,d));}
+float SawTooth(float t){return cos(t+cos(t))+sin(2.*t)*.2+sin(4.*t)*.02;}
+float DeltaSawTooth(float t){return .4*cos(2.*t)+.08*cos(4.*t)-(1.-sin(t))*sin(t+cos(t));}
+vec2 GetDrops(vec2 uv,float seed){float t=iTime;uv.y+=t*.05;uv*=vec2(20.,5.)*uRain;vec2 id=floor(uv);vec3 n=N31(id.x+(id.y+seed)*546.3524);vec2 bd=fract(uv)-.5;bd.y*=4.;bd.x+=(n.x-.5)*.6;t+=n.z*6.28;float slide=SawTooth(t);bd.y+=slide*2.;if(uQuality>.5){bd.y+=bd.x*bd.x*DeltaSawTooth(t);}float d=length(bd);float trailMask=S(-.2,.2,bd.y)*bd.y;vec2 trailPos=vec2(bd.x*1.5,(fract((bd.y*1.5)*2.-t*2.)-.5)*.5);float td=length(trailPos*max(.5,trailMask));float mainDrop=S(.2,.1,d);float dropTrail=S(.1,.02,td)*trailMask;return mix(bd*mainDrop,trailPos,dropTrail);}
+float MilkDrops(vec2 uv){float t=iTime;uv.y+=t*.05;uv*=vec2(20.,5.)*uRain;vec2 id=floor(uv);vec3 n=N31(id.x+(id.y+1.)*546.3524);vec2 bd=fract(uv)-.5;bd.y*=4.;bd.x+=(n.x-.5)*.6;t+=n.z*6.28;bd.y+=SawTooth(t)*2.;if(uQuality>.5){bd.y+=bd.x*bd.x*DeltaSawTooth(t);}float d=length(bd);float main=S(.22,.06,d);float trailMask=S(-.2,.2,bd.y)*bd.y;vec2 trail=vec2(bd.x*1.5,(fract(bd.y*3.-t*2.)-.5)*.5);float trailDrop=S(.12,.015,length(trail*max(.5,trailMask)))*trailMask;return sat(main+trailDrop*.65);}
+void CameraSetup(vec2 uv,vec3 pos,vec3 lookat){ro=pos;vec3 f=normalize(lookat-ro);vec3 r=cross(vec3(0,1,0),f);vec3 u=cross(f,r);vec2 offs=GetDrops(uv,1.)+GetDrops(uv*1.4,10.);vec3 center=ro+f*2.;vec3 i=center+(uv.x-offs.x)*r+(uv.y-offs.y)*u;rd=normalize(i-ro);}
+vec3 HeadLights(float i,float t){float z=fract(-t*2.+i);vec3 p=vec3(-.3,.1,z*40.);float d=length(p-ro),size=mix(.03,.05,S(.02,.07,z))*d,m=0.;m+=BokehMask(ro,rd,p-vec3(.08,0,0),size,.1);m+=BokehMask(ro,rd,p+vec3(.08,0,0),size,.1);if(uQuality>.5){m+=BokehMask(ro,rd,p+vec3(.1,0,0),size,.1);m+=BokehMask(ro,rd,p-vec3(.1,0,0),size,.1);}float fade=max(.01,pow(1.-z,9.));float r=BokehMask(ro,rd,p+vec3(-.09,-.2,0),size*2.5,.8)+BokehMask(ro,rd,p+vec3(.09,-.2,0),size*2.5,.8);return headLightCol*(m+r*fade*fade)*fade;}
+vec3 TailLights(float i,float t){t=t*1.5+i;vec3 n=N31(floor(t)+i);float laneId=S(.5,.51,n.y),ft=fract(t),z=3.-ft*3.;laneId*=S(.2,1.5,z);float lane=mix(.6,.3,laneId);vec3 p=vec3(lane,.1,z);float d=length(p-ro),size=.05*d,m=BokehMask(ro,rd,p-vec3(.08,0,0),size,.1)+BokehMask(ro,rd,p+vec3(.08,0,0),size,.1);m+=BokehMask(ro,rd,p+vec3(-.09,-.2,0),size*2.5,.8)+BokehMask(ro,rd,p+vec3(.09,-.2,0),size*2.5,.8);return tailLightCol*m*ft;}
+vec3 StreetLights(float i,float t){float side=sign(rd.x),z=fract(i-t+max(side,0.)/16.);vec3 p=vec3(2.*side,2.,z*60.);float d=length(p-ro),fade=(1.-pow(1.-z,6.))*(1.-z);return BokehMask(ro,rd,p,.05*d,.1)*fade*streetLightCol;}
+vec3 EnvironmentLights(float i,float t){float n=N(i+floor(t)),side=sign(rd.x),z=fract(i-t+max(side,0.)/16.+fract(n*234.)),n2=fract(n*100.);vec3 p=vec3((3.+n)*side,n2*n2*n2,z*60.);float d=length(p-ro),m=BokehMask(ro,rd,p,.05*d,.1);m*=((1.-pow(1.-z,6.))*.8)*.5;m*=1.-pow(sin(z*6.28*20.*n)*.5+.5,20.);vec3 c=mix(tailLightCol,streetLightCol,fract(n*-65.42));return m*mix(c,vec3(fract(n*-34.5),fract(n*4572.),fract(n*1264.)),n)*.2;}
+void main(){float t=iTime;vec3 col=vec3(0);vec2 uv=gl_FragCoord.xy/iResolution.xy-.5;uv.x*=iResolution.x/iResolution.y;vec3 pos=vec3(.3,.15,0);float bt=t*5.,h1=N(floor(bt)),h2=N(floor(bt+1.)),bumps=pow(mix(h1,h2,fract(bt))*.1*uShake,3.);pos.y+=bumps;float lookatY=pos.y+bumps;vec3 lookat=mix(vec3(.3,lookatY,1.),vec3(0.,lookatY,.7),sin(t*.1)*.5+.5);uv.y+=bumps*4.;float milk=MilkDrops(uv)+MilkDrops(uv*1.37+vec2(2.4,1.1))*.55;CameraSetup(uv,pos,lookat);t*=.03;for(float i=0.;i<1.;i+=.125){col+=StreetLights(i,t);col+=HeadLights(i+N(i+floor(t))*.0875,t);col+=EnvironmentLights(i,t);}col+=TailLights(0.,t)+TailLights(.5,t);col+=sat(rd.y)*vec3(.6,.5,.9);vec3 milkyTint=mix(vec3(.72,.78,.82),vec3(1.),uMilkiness);float milkAlpha=milk*uMilkiness*.72;col=mix(col,col*0.78+milkyTint*.32,milkAlpha);outColor=vec4(col*uLight*uExposure,1.);}`;
+    function compile(type, source){ const s=gl.createShader(type); gl.shaderSource(s,source); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+    const program=gl.createProgram(); gl.attachShader(program,compile(gl.VERTEX_SHADER,vertexSource)); gl.attachShader(program,compile(gl.FRAGMENT_SHADER,fragmentSource)); gl.linkProgram(program); if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program)); gl.useProgram(program);
+    const buffer=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buffer); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW); const loc=gl.getAttribLocation(program,'aPosition'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const resLoc=gl.getUniformLocation(program,'iResolution'), timeLoc=gl.getUniformLocation(program,'iTime'), qualityLoc=gl.getUniformLocation(program,'uQuality'), rainLoc=gl.getUniformLocation(program,'uRain'), lightLoc=gl.getUniformLocation(program,'uLight'), shakeLoc=gl.getUniformLocation(program,'uShake'), exposureLoc=gl.getUniformLocation(program,'uExposure'), milkLoc=gl.getUniformLocation(program,'uMilkiness'); let start=performance.now(), paused=false, pauseAt=0, quality=1, params={speed:1,rain:1,light:1,shake:1,exposure:1,milk:.5};
+    function resize(){const dpr=Math.min(devicePixelRatio||1,2); canvas.width=Math.floor(innerWidth*dpr); canvas.height=Math.floor(innerHeight*dpr); gl.viewport(0,0,canvas.width,canvas.height);} addEventListener('resize',resize); resize();
+    function frame(now){ let elapsed=(paused?pauseAt:now-start)/1000*params.speed; gl.uniform2f(resLoc,canvas.width,canvas.height); gl.uniform1f(timeLoc,elapsed); gl.uniform1f(qualityLoc,quality); gl.uniform1f(rainLoc,params.rain); gl.uniform1f(lightLoc,params.light); gl.uniform1f(shakeLoc,params.shake); gl.uniform1f(exposureLoc,params.exposure); gl.uniform1f(milkLoc,params.milk); gl.drawArrays(gl.TRIANGLES,0,3); requestAnimationFrame(frame); } requestAnimationFrame(frame);
+    document.getElementById('pause').onclick=()=>{paused=!paused; if(paused) pauseAt=(performance.now()-start)/1000; else start=performance.now()-pauseAt*1000; document.getElementById('pause').textContent=paused?'Resume':'Pause';};
+    document.getElementById('quality').onchange=e=>quality=+e.target.value;
+    document.getElementById('fullscreen').onclick=()=>document.documentElement.requestFullscreen?.();
+    const panel=document.getElementById('panel');
+    document.getElementById('tune').onclick=()=>panel.classList.toggle('open');
+    document.getElementById('close-panel').onclick=()=>panel.classList.remove('open');
+    document.addEventListener('keydown',event=>{if(event.key==='Escape') panel.classList.remove('open');});
+    const labels={speed:'speed-value',rain:'rain-value',light:'light-value',shake:'shake-value',exposure:'exposure-value',milk:'milk-value'};
+    Object.keys(labels).forEach(key=>{const input=document.getElementById(key); input.oninput=()=>{params[key]=Number(input.value); const value=document.getElementById(labels[key]); value.textContent=key==='milk'?`${Math.round(params[key]*100)}%`:`${params[key].toFixed(2)}×`;};});
+    document.getElementById('reset').onclick=()=>{Object.keys(labels).forEach(key=>{params[key]=key==='milk'?.5:1; const input=document.getElementById(key); input.value=String(params[key]); document.getElementById(labels[key]).textContent=key==='milk'?'50%':'1.00×';});};
+  </script>
+</body>
+</html>
+

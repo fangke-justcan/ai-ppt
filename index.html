@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型创新实践 · HTML 版</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --ink: #111111;
+    --muted: #767676;
+    --faint: #a6a6a6;
+    --line: #e4e4e4;
+    --acc: #EB7081;
+    --sans: "DengXian", "等线", "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    --light: "DengXian Light", "等线 Light", "DengXian", "等线", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+
+  /* ---------- 舞台：16:9，等比缩放 ---------- */
+  #stage {
+    position: absolute; left: 50%; top: 50%;
+    width: 1280px; height: 720px;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
+  }
+
+  .slide { position: absolute; inset: 0; padding: 72px 84px; opacity: 0; visibility: hidden; transition: opacity .45s ease; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+  .slide.practice, .slide.practice-wide { display: grid; justify-content: stretch; }
+  .slide.dark { background: #0c0c0c; color: #fff; }
+  .slide.active { opacity: 1; visibility: visible; z-index: 2; }
+
+  /* 入场动画 */
+  .anim { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+  .slide.active .anim { opacity: 1; transform: none; }
+  .slide.active .d1 { transition-delay: .08s; } .slide.active .d2 { transition-delay: .18s; }
+  .slide.active .d3 { transition-delay: .28s; } .slide.active .d4 { transition-delay: .38s; }
+  .slide.active .d5 { transition-delay: .48s; } .slide.active .d6 { transition-delay: .58s; }
+
+  /* ---------- 公共元件 ---------- */
+  h2.title { font-size: 40px; font-weight: 700; letter-spacing: .01em; line-height: 1.25; margin-top: 16px; }
+  .sub { color: var(--muted); font-size: 17px; line-height: 1.7; margin-top: 10px; }
+  em.acc { font-style: normal; color: var(--acc); }
+
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 26px 30px; }
+  .card h3 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+  .card p { font-size: 16px; line-height: 1.8; color: #444; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { padding: 8px 18px; border: 1px solid var(--line); border-radius: 2px; font-size: 16px; color: var(--ink); background: #fff; }
+  .chip.hot { border-color: var(--ink); }
+
+  /* ---------- 封面 / 结尾：黑白反相 ---------- */
+  .s-cover { display: flex; flex-direction: column; justify-content: center; }
+  .s-cover .eyebrow { font-size: 13px; letter-spacing: .42em; text-transform: uppercase; color: var(--acc); }
+  .s-cover h1 { font-family: var(--light); font-size: 116px; font-weight: 400; line-height: 1.1; letter-spacing: .02em; margin: 30px 0 36px; color: #fff; }
+  .s-cover h1 .thin { color: #8a8a8a; }
+  .s-cover .authors { display: flex; gap: 12px; align-items: center; color: #cfcfcf; font-size: 18px; }
+  .s-cover .authors .sep { color: #666; }
+
+  /* 大字宣言页 */
+  .statement { display: flex; flex-direction: column; justify-content: center; }
+  .statement .big { font-weight: 700; letter-spacing: .02em; line-height: 1.18; }
+  .statement .thin { font-family: var(--light); font-weight: 400; }
+
+  /* 引言页 */
+  .quote-wrap { display: flex; flex-direction: column; justify-content: center; }
+  .qmark { font: 700 150px/0.6 var(--light); color: #e2e2e2; }
+  blockquote { font-family: var(--light); font-size: 46px; font-weight: 400; line-height: 1.6; max-width: 1040px; margin-top: 30px; }
+  blockquote .note { display: block; margin-top: 18px; font-size: 20px; color: var(--faint); }
+  .attrib { margin-top: 36px; font-size: 15px; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); }
+  .attrib b { color: var(--acc); }
+
+  /* 两栏卡片页 */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 40px; }
+  .cols.wide { grid-template-columns: 1.15fr .85fr; }
+
+  /* 行列表 */
+  .rows { display: flex; flex-direction: column; gap: 16px; margin-top: 38px; max-width: 1050px; }
+  .row { display: flex; gap: 20px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 20px 24px; }
+  .row .no { flex: none; width: 34px; height: 34px; border-radius: 2px; display: grid; place-items: center; background: #f2f2f2; color: var(--ink); font-size: 15px; font-weight: 700; }
+  .row p { font-size: 17.5px; line-height: 1.75; color: #333; }
+  .row p b { color: var(--ink); }
+  .slide.noborder .row { border: none; background: none; padding-left: 0; padding-right: 0; }
+  .slide.noborder .row.sub2 { border: none; margin-left: 62px; background: none; }
+  .fill-acc { display: block; background: var(--acc); color: #fff; padding: 18px 24px; border-radius: 2px; font-size: 16px; line-height: 1.8; font-weight: 700; }
+  .slide.compact .rows { gap: 8px; }
+  .slide.compact .row { padding: 10px 0; }
+  .slide.compact .row p { font-size: 24px; }
+  .slide.compact .row.sub2 { margin-left: 62px; }
+  .slide.compact .row.sub2 p { font-size: 19px; }
+  .card-c { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .row.sub2 p { font-size: 15px; color: var(--muted); }
+  .row p code { font-family: ui-monospace, Consolas, Menlo, monospace; font-size: .9em; background: #f4f4f4; border: 1px solid var(--line); border-radius: 2px; padding: 1px 6px; }
+  .prompt-chip { display: inline-block; margin-top: 6px; padding: 6px 14px; border-radius: 2px; background: #eef3fb; border: 1px solid #b9ccec; color: #1c4e89; font-size: 14.5px; line-height: 1.6; }
+  .prompt-chip a { color: #1c4e89; text-decoration: none; border-bottom: 1px solid rgba(28,78,137,.4); }
+  .prompt-chip a:hover { border-bottom-color: #1c4e89; }
+
+  /* 章节页（实时背景，灰度处理保持黑白基调） */
+  .divider { display: flex; flex-direction: column; justify-content: center; }
+  .divider h1 { font-family: var(--light); font-size: 100px; font-weight: 400; letter-spacing: .02em; }
+  .live-bg { position: absolute; inset: 0; z-index: 0; }
+  .live-bg iframe { width: 100%; height: 100%; border: 0; pointer-events: none; opacity: .3; filter: grayscale(1) contrast(1.05); }
+  .live-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,.94) 0%, rgba(255,255,255,.72) 45%, rgba(255,255,255,.4) 100%); }
+  .divider .fg, .s-end .fg { position: relative; z-index: 1; }
+
+  /* ---------- 实践页：左文右演示 ---------- */
+  .practice { display: grid; grid-template-columns: 460px 1fr; gap: 34px; padding: 56px 60px; }
+  .practice .left { display: flex; flex-direction: column; min-width: 0; }
+  .practice h2.title { font-size: 31px; }
+  .practice .en-sub { font-family: var(--light); font-weight: 400; color: var(--acc); }
+  .practice .steps { display: flex; flex-direction: column; gap: 13px; margin-top: 26px; }
+  .practice .steps .row { padding: 14px 18px; gap: 14px; }
+  .practice .steps .row p { font-size: 14.5px; line-height: 1.7; }
+  .practice .steps .row .no { width: 28px; height: 28px; font-size: 13px; }
+  .practice .leftnote { margin-top: auto; padding-top: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
+
+  .demo { position: relative; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; background: #000; min-height: 0; }
+  .demo iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+  .demo .openlink { position: absolute; z-index: 3; top: 12px; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity .2s; padding: 6px 12px; border-radius: 2px;
+    background: rgba(255,255,255,.94); border: 1px solid var(--line); color: #333; font-size: 12.5px; text-decoration: none; }
+  .demo:hover .openlink { opacity: 1; }
+  .demo .openlink:hover { color: var(--acc); border-color: var(--acc); }
+  .demo.demo-sm { width: 80%; height: 84%; justify-self: end; align-self: center; }
+  .demo .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #888; font-size: 13px; letter-spacing: .1em; }
+
+  /* 原网址链接 */
+  .srclink { margin-top: 16px; font-size: 13.5px; color: var(--muted); }
+  .srclink a { color: var(--acc); text-decoration: none; border-bottom: 1px solid rgba(235,112,129,.35); transition: border-color .15s; }
+  .srclink a:hover { border-bottom-color: var(--acc); }
+  .practice-wide .srclink { grid-column: 1 / -1; margin-top: 2px; align-self: end; }
+  .bg-srclink { position: absolute; z-index: 2; left: 84px; bottom: 44px; font-size: 13.5px; color: var(--muted); }
+  .bg-srclink a { color: var(--acc); text-decoration: none; border-bottom: 1px solid rgba(235,112,129,.35); }
+  .bg-srclink a:hover { border-bottom-color: var(--acc); }
+
+  /* 实践页（宽版）：上标题下演示 */
+  .practice-wide { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 20px; padding: 52px 60px 56px; }
+  .practice-wide .left { display: grid; grid-template-columns: 430px 1fr; gap: 6px 44px; align-items: start; }
+  .practice-wide h2.title { margin-top: 12px; font-size: 29px; }
+  .practice-wide .steps { margin-top: 16px; }
+  .practice-wide .leftnote { display: none; }
+  .practice-wide .demo { min-height: 0; }
+
+  /* 版本馆 */
+  .verbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .ver-btn { cursor: pointer; padding: 9px 14px; border-radius: 2px; border: 1px solid var(--line); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 13.5px; text-align: left; transition: .18s; }
+  .ver-btn small { display: block; font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .ver-btn:hover { border-color: var(--ink); }
+  .ver-btn.on { border-color: var(--ink); color: var(--acc); font-weight: 700; }
+  .ver-btn.on small { color: var(--muted); font-weight: 400; }
+
+  /* 问 ai 页：极简引用块 */
+  .qa { margin-top: 42px; max-width: 1020px; border-left: 2px solid var(--ink); padding: 8px 0 8px 30px; font-family: var(--light); font-size: 27px; line-height: 1.8; color: var(--ink); }
+  .qa .ask { color: var(--acc); font-family: var(--sans); font-weight: 700; }
+
+  /* ---------- 页面chrome ---------- */
+  #progress { position: fixed; z-index: 50; left: 0; bottom: 0; height: 2px; width: 100%; background: #efefef; cursor: pointer; }
+  #progress i { display: block; height: 100%; width: 0; background: var(--ink); transition: width .4s ease; }
+
+  .navzone { position: fixed; z-index: 45; top: 0; bottom: 0; width: 52px; cursor: pointer; display: grid; place-items: center; color: transparent; font-size: 26px; transition: color .2s; user-select: none; }
+  .navzone:hover { color: #c9c9c9; }
+  #navprev { left: 0; } #navnext { right: 0; }
+
+  /* file:// 提示 */
+  #filehint { position: fixed; z-index: 60; left: 18px; bottom: 18px; display: none; align-items: center; gap: 12px; max-width: 460px; padding: 12px 16px; border-radius: 2px;
+    background: #fff; border: 1px solid var(--ink); color: var(--ink); font-size: 13px; line-height: 1.6; }
+  #filehint button { cursor: pointer; border: 0; background: none; color: var(--acc); font-size: 16px; font-weight: 700; font-family: var(--sans); }
+
+  /* ---------- 评论模式（按 C 进入） ---------- */
+  #cmodebar { position: fixed; z-index: 70; top: 0; left: 0; right: 0; height: 3px; background: var(--acc); display: none; }
+  body.cmode #cmodebar { display: block; }
+  #commentOverlay { position: absolute; inset: 0; z-index: 46; display: none; cursor: crosshair; }
+  body.cmode #commentOverlay { display: block; }
+  #cmarkers { position: absolute; inset: 0; z-index: 47; pointer-events: none; }
+  #cmarkers:empty { display: none; }
+  .cmark { position: absolute; border: 1px solid var(--acc); cursor: pointer; pointer-events: auto; background: rgba(235,112,129,.04); }
+  .cmark .cn { position: absolute; top: -1px; left: -1px; min-width: 17px; height: 17px; padding: 0 4px; background: #fff; border: 1px solid var(--acc); color: var(--acc); font-size: 11px; line-height: 15px; text-align: center; font-weight: 700; box-sizing: border-box; }
+  .cmark.done { border-color: #c2c2c2; background: transparent; }
+  .cmark.done .cn { border-color: #c2c2c2; color: #a0a0a0; text-decoration: line-through; }
+  #selRect { position: absolute; border: 1px dashed var(--acc); background: rgba(235,112,129,.06); display: none; z-index: 48; pointer-events: none; }
+  #cpopup { position: absolute; z-index: 50; width: 330px; background: #fff; border: 1px solid var(--ink); border-radius: 2px; padding: 16px; display: none; box-shadow: 0 10px 34px rgba(0,0,0,.14); }
+  #cpopup textarea { width: 100%; height: 88px; border: 1px solid var(--line); font: 14px/1.6 var(--sans); color: var(--ink); padding: 8px; resize: none; outline: none; box-sizing: border-box; }
+  #cpopup textarea:focus { border-color: var(--acc); }
+  #cpopup .cbtns { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+  #cpopup button { cursor: pointer; border: 1px solid var(--ink); background: #fff; color: var(--ink); font: 13px var(--sans); padding: 5px 14px; border-radius: 2px; }
+  #cpopup button.primary { background: var(--ink); color: #fff; }
+  #cpopup button.accbtn { border-color: var(--acc); color: var(--acc); }
+  #cpopup .cmeta { font-size: 11.5px; color: var(--faint); margin-bottom: 8px; }
+  #cpopup .cmeta b { color: var(--acc); font-weight: 700; }
+  #cpopup .ctext { font-size: 14px; line-height: 1.75; color: var(--ink); white-space: pre-wrap; }
+  #cpopup .csavefail { display: none; color: var(--acc); font-size: 12px; margin-top: 8px; }
+  #cpopup button.micbtn.rec { background: var(--acc); border-color: var(--acc); color: #fff; animation: micpulse 1.2s ease-in-out infinite; }
+  @keyframes micpulse { 50% { opacity: .55; } }
+
+  /* 总览 */
+  #overview { position: fixed; inset: 0; z-index: 80; display: none; background: rgba(255,255,255,.97); padding: 56px 64px; overflow: auto; }
+  #overview.open { display: block; }
+  #overview h3 { font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); margin-bottom: 26px; }
+  #ovgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .ov-card { cursor: pointer; border: 1px solid var(--line); border-radius: 2px; padding: 16px 18px; background: #fff; transition: .15s; min-height: 86px; }
+  .ov-card:hover { border-color: var(--ink); }
+  .ov-card.cur { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .ov-card .n { font-size: 11px; color: var(--faint); letter-spacing: .12em; }
+  .ov-card .t { margin-top: 8px; font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--ink); }
+  .ov-card .live-tag { display: inline-block; margin-top: 8px; font-size: 10.5px; letter-spacing: .2em; color: var(--acc); }
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- 1 · 封面（反相） -->
+  <section class="slide s-cover dark">
+    <h1 class="anim d2">大模型创新<br><span class="thin">实践</span></h1>
+    <div class="authors anim d3"><span>方可</span><span class="sep">、</span><span>郭瑽</span><span class="sep">、</span><span>散步</span></div>
+  </section>
+
+  <!-- 2 · 宣言：AI 时代，人应该做什么 -->
+  <section class="slide statement">
+    <div class="anim d1" style="font-family:var(--light); font-weight:400; font-size:46px; letter-spacing:.3em; color:var(--muted); margin-left:58px;">AI 时代</div>
+    <div class="big anim d2" style="font-size:112px; margin-top:30px;"><span style="color:var(--acc);">人</span><span class="thin" style="font-weight:400;">应该做什么</span></div>
+  </section>
+
+  <!-- 3 · Ilya 引言 -->
+  <section class="slide quote-wrap">
+    <div class="qmark anim d1">&ldquo;</div>
+    <blockquote class="anim d2" style="font-size:40px;">if you value intelligence above all other human qualities, you&rsquo;re gonna have a bad time</blockquote>
+    <div class="anim d3" style="font-family:var(--light); font-weight:400; font-size:26px; color:#555; margin-top:24px;">如果你把智能看得高于人类所有其他品质，那你会很难受。</div>
+    <div class="attrib anim d4">— <b>ilya sutskever</b></div>
+  </section>
+
+  <!-- 4 · 宣言 -->
+  <section class="slide statement" style="align-items:center; text-align:center;">
+    <div class="big anim d1" style="font-family:var(--light); font-weight:400; font-size:120px;">以AI，<span style="color:var(--acc);">重做人</span></div>
+  </section>
+
+  <!-- 6 · 课程目标 -->
+  <section class="slide">
+    <h2 class="title anim d1">课程目标</h2>
+    <div class="cols">
+      <div class="card anim d2" style="display:flex; flex-direction:column;">
+        <h3 style="font-weight:400;">以AI：对AI和技术祛魅，发展和他们的关系，和AI一起创作</h3>
+        <p class="fill-acc" style="margin:auto 0 0; color:#fff;">路人？　明星？　恋人？　同事？</p>
+      </div>
+      <div class="card anim d3" style="display:flex; flex-direction:column;">
+        <h3 style="font-weight:400;">重做人：在创作的过程中找回人的价值</h3>
+        <p class="fill-acc" style="margin:auto 0 0; color:#fff;">创作具有"复杂性"的体验</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · 课程目标：以AI，重做人 -->
+  <section class="slide">
+    <h2 class="title anim d1">课程目标：以AI，重做人</h2>
+    <div class="cols" style="margin-top:48px;">
+      <div class="card anim d2" style="display:flex; flex-direction:column;">
+        <h3 style="font-weight:400;">以AI：对AI和技术祛魅，发展和他们的关系，和AI一起创作</h3>
+        <p class="fill-acc" style="margin:auto 0 0; color:#fff;">工具性：同一个人，没有 ai 作品会逊色很多，甚至不成立</p>
+      </div>
+      <div class="card anim d3" style="display:flex; flex-direction:column;">
+        <h3 style="font-weight:400;">重做人：在创作的过程中找回人的价值</h3>
+        <p class="fill-acc" style="margin:auto 0 0; color:#fff;">主体性：换一个人，无法快速复现、迭代和发展我的项目</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · 课程作业 -->
+  <section class="slide noborder compact">
+    <h2 class="title anim d1">课程作业</h2>
+    <div class="rows" style="max-width:1020px;">
+      <div class="row anim d2"><span class="no">1</span><p><b>前两节课：Workshop： Your Art， Your Tool</b></p></div>
+      <div class="row sub2 anim d3"><p>每个人都必须有自己的Art与Tool，但是三人形成小组，每个小组有一个共享主题，作品形成成套的风格</p></div>
+      <div class="row anim d4"><span class="no">2</span><p><b>后六节课：大模型创新应用</b>（app, game, new media art, etc.)</p></div>
+      <div class="row sub2 anim d5"><p>Your Group Project：1-3 ppl per group</p></div>
+      <div class="row sub2 anim d6"><p>Course Exihibition/Roadshow around 12<sup>th</sup> week</p></div>
+    </div>
+  </section>
+
+  <!-- 9 · 章节页：Your Art，Your Tool（grafEq 实时背景，灰度） -->
+  <section class="slide divider" data-bg="2d texture shader/grafEq.html">
+    <div class="live-bg" data-livebg></div>
+    <div class="fg">
+      <h1 class="anim d1">Your Art，<br>Your Tool</h1>
+    </div>
+    <div class="bg-srclink anim d2">grafEq · <a href="https://www.shadertoy.com/view/Xs3GWj" target="_blank" rel="noopener">原网址 shadertoy.com/view/Xs3GWj ↗</a></div>
+  </section>
+
+  <!-- 10 · 两周工作坊 -->
+  <section class="slide noborder">
+    <h2 class="title anim d1">两周工作坊</h2>
+    <div class="rows" style="max-width:1080px;">
+      <div class="row anim d2"><span class="no">1</span><p>使用AI工具创造自己的一个<em class="acc">艺术化风格</em>以及其<em class="acc">工具</em></p></div>
+      <div class="row anim d3"><span class="no">2</span><p>可以有参考，但是<em class="acc">同时展示参考</em>和最终成果</p></div>
+      <div class="row anim d4"><span class="no">3</span><p>每个人都要有作品，但是三人一个小组，一个小组的作品有<em class="acc">同样的情感目标</em>，作品形成一个<em class="acc">小组系列</em>作品，具有某种形式或者情感联系。</p></div>
+    </div>
+  </section>
+
+  <!-- 11 · 分组 -->
+  <section class="slide">
+    <h2 class="title anim d1" style="font-size:34px;">分组：对于<span style="font-size:24px; color:#555;">Codex、ClaudeCode、WorkBuddy、Trae、Zcode、Qoder</span>之类的工具</h2>
+    <div class="cols" style="grid-template-columns:repeat(4,1fr); margin-top:48px;">
+      <div class="card card-c anim d2" style="padding:24px 20px; min-height:150px;"><h3 style="font-size:18px;">每天必用</h3></div>
+      <div class="card card-c anim d3" style="padding:24px 20px; min-height:150px;"><h3 style="font-size:18px;">做过一个完整的项目</h3><p style="font-size:13.5px; color:var(--muted); margin-top:8px; line-height:1.6;">（至少烧了1个亿token）</p></div>
+      <div class="card card-c anim d4" style="padding:24px 20px; min-height:150px;"><h3 style="font-size:18px;">使用过</h3></div>
+      <div class="card card-c anim d5" style="padding:24px 20px; min-height:150px;"><h3 style="font-size:18px;">只是听说</h3></div>
+    </div>
+  </section>
+
+  <!-- 12 · 红牌 -->
+  <section class="slide statement">
+    <div class="big anim d2" style="font-size:80px; margin-top:28px;">每组三人，自由组队</div>
+    <div class="big anim d3" style="font-family:var(--light); font-weight:400; font-size:44px; margin-top:22px; color:#333;">每组至少有一张<span style="color:var(--acc);">红牌</span></div>
+  </section>
+
+  <!-- 13 · 情感目标 -->
+  <section class="slide">
+    <h2 class="title anim d1">情感目标：</h2>
+    <p class="sub anim d2">每个同学写一个情绪词、一个动词</p>
+    <div style="display:flex; flex-direction:column; gap:26px; margin-top:44px; max-width:1000px;">
+      <div class="card anim d3">
+        <h3 style="color:var(--acc); font-size:14px; font-weight:700; letter-spacing:.08em;">情绪词</h3>
+        <div class="chips" style="margin-top:14px;">
+          <span class="chip hot">孤单</span><span class="chip hot">兴奋</span><span class="chip hot">恐惧</span><span class="chip hot">安详</span><span class="chip">等等</span>
+        </div>
+      </div>
+      <div class="card anim d4">
+        <h3 style="color:var(--acc); font-size:14px; font-weight:700; letter-spacing:.08em;">动词</h3>
+        <div class="chips" style="margin-top:14px;">
+          <span class="chip hot">跳跃</span><span class="chip hot">思考</span><span class="chip hot">创造</span><span class="chip hot">跑步</span><span class="chip">等等</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 · Phase 1: Make a copy（Night Drive 实时演示） -->
+  <section class="slide practice noborder">
+    <div class="left">
+      <h2 class="title anim d1">Workshop Phase 1<br><span class="en-sub" style="font-size:37px;">Make a copy</span></h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">1</span><p>安装zcode，领取glm-lite，然后选择glm53flash （你如果有条件，可以使用codex+gpt6）</p></div>
+        <div class="row anim d3"><span class="no">2</span><p>在shadertoy上复刻一个效果（随便选择一个），提示词为：<br><span class="prompt-chip">请你帮我在本地复刻一个这个：<a href="https://www.shadertoy.com/view/MdfBRX" target="_blank" rel="noopener">shadertoy.com/view/MdfBRX</a></span></p></div>
+        <div class="row anim d4"><span class="no">3</span><p>观察AI的思考过程。如果AI说你的环境中没有<code>Python</code>。<code>Node.js</code>，<em class="acc">强烈建议先暂停</em>，然后和AI对话问他，你能否帮我装好<code>Python</code>/<code>Node.js</code></p></div>
+        <div class="row anim d5"><span class="no">4</span><p>等待AI复刻好，让ai帮你打开。</p></div>
+      </div>
+      <div class="srclink anim d5">Night Drive · <a href="https://www.shadertoy.com/view/MdfBRX" target="_blank" rel="noopener">原网址 shadertoy.com/view/MdfBRX ↗</a></div>
+    </div>
+    <div class="demo anim d2" data-src="night-drive/index.html">
+      <a class="openlink" href="night-drive/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
+    </div>
+  </section>
+
+  <!-- 15 · 情感目标 · 最简路径 -->
+  <section class="slide">
+    <h2 class="title anim d1" style="font-size:33px; max-width:1050px;">小组选择自己的情感目标：一个情感词 + 一个动作词，任意语序组合</h2>
+    <div class="card anim d3" style="margin-top:42px; max-width:1050px;">
+      <h3 style="color:var(--acc);">Your Art Your Tool 工作坊的最简路径</h3>
+      <p style="margin-top:10px;">在shadertoy上面找到一个艺术效果，并且对他进行修改，能够体现你的情感目标。小组三人要有联系，但是也要有足够的区分度。</p>
+    </div>
+  </section>
+
+  <!-- 16 · Phase 2：参数 slider（fractured-orb 实时演示） -->
+  <section class="slide practice">
+    <div class="left">
+      <h2 class="title anim d1">Workshop Phase 2<br><span class="en-sub" style="font-size:37px;">Make a mod</span></h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">→</span><p>请给出参数slider</p></div>
+      </div>
+      <div class="srclink anim d3" style="margin-top:auto;">Fractured Orb · <a href="https://www.shadertoy.com/view/ttycWW" target="_blank" rel="noopener">原网址 shadertoy.com/view/ttycWW ↗</a></div>
+    </div>
+    <div class="demo demo-sm anim d2" data-src="3d composition/fractured-orb/index.html">
+      <a class="openlink" href="3d composition/fractured-orb/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
+    </div>
+  </section>
+
+  <!-- 17 · Phase 2：sphere->cube（fractured-orb 双模型） -->
+  <section class="slide practice">
+    <div class="left">
+      <h2 class="title anim d1">Workshop Phase 2<br><span class="en-sub" style="font-size:37px;">Make a mod</span></h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">→</span><p>让AI直接给你修改（sphere-&gt;cube）</p></div>
+      </div>
+      <div class="srclink anim d3" style="margin-top:auto;">Fractured Orb · <a href="https://www.shadertoy.com/view/ttycWW" target="_blank" rel="noopener">原网址 shadertoy.com/view/ttycWW ↗</a></div>
+    </div>
+    <div class="demo demo-sm anim d2" data-src="3d composition/fractured-orb/index.html">
+      <a class="openlink" href="3d composition/fractured-orb/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
+    </div>
+  </section>
+
+  <!-- 17b · Phase 2：紫金花的例子（particle 实时演示） -->
+  <section class="slide practice">
+    <div class="left">
+      <h2 class="title anim d1">Workshop Phase 2<br><span class="en-sub" style="font-size:37px;">Make a mod</span></h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">→</span><p>让AI直接给你修改（紫金花的例子）</p></div>
+      </div>
+      <div class="srclink anim d3" style="margin-top:auto;">Subpixel Bijection Flow · <a href="https://www.shadertoy.com/view/73c3R7" target="_blank" rel="noopener">原网址 shadertoy.com/view/73c3R7 ↗</a></div>
+    </div>
+    <div class="demo anim d2" data-src="3d composition/particle/subpixel-bijection-flow/index.html">
+      <a class="openlink" href="3d composition/particle/subpixel-bijection-flow/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
+    </div>
+  </section>
+
+  <!-- 18 · Phase 2：交互教材（紫金花交互课堂） -->
+  <section class="slide practice-wide">
+    <div class="left">
+      <h2 class="title anim d1">Workshop Phase 2<br><span class="en-sub" style="font-size:34px;">Make a mod</span></h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">→</span><p>让AI给你解释，创造成套的交互教材解释原理（紫金花案例的交互教材）</p></div>
+        <div class="row anim d3"><span class="no">→</span><p>使用我们的制作交互skill创造一个</p></div>
+      </div>
+      <div class="srclink anim d4">紫金花 Subpixel Bijection Flow · <a href="https://www.shadertoy.com/view/73c3R7" target="_blank" rel="noopener">原网址 shadertoy.com/view/73c3R7 ↗</a></div>
+    </div>
+    <div class="demo anim d2" data-src="3d composition/interactive-tutorial-skill/index.html">
+      <a class="openlink" href="3d composition/interactive-tutorial-skill/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
+    </div>
+  </section>
+
+  <!-- 19 · Phase 2：自制笔刷（马赛克案例） -->
+  <section class="slide practice">
+    <div class="left">
+      <h2 class="title anim d1">Workshop Phase 2<br><span class="en-sub" style="font-size:37px;">Make a mod</span></h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">→</span><p>自制笔刷，在页面上创造工具进行创作</p></div>
+      </div>
+      <div class="srclink anim d3" style="margin-top:auto;">Celestia Glass · <a href="https://www.shadertoy.com/view/WX3fRn" target="_blank" rel="noopener">原网址 shadertoy.com/view/WX3fRn ↗</a></div>
+    </div>
+    <div class="demo anim d2" data-src="马赛克/index.html">
+      <a class="openlink" href="马赛克/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
+    </div>
+  </section>
+
+  <!-- 20 · 版本管理（版本馆实时切换） -->
+  <section class="slide practice">
+    <div class="left">
+      <h2 class="title anim d1" style="font-size:26px;">进行版本管理：如果我希望回到之前的一个版本怎么办？</h2>
+      <div class="steps">
+        <div class="row anim d2"><span class="no">→</span><p>问AI如何做，如何使用git进行版本管理</p></div>
+      </div>
+      <div class="verbar anim d4" id="verbar">
+        <button class="ver-btn" data-v="v0.1">v0.1<small>本地复刻</small></button>
+        <button class="ver-btn" data-v="v0.2">v0.2<small>参数面板</small></button>
+        <button class="ver-btn" data-v="v0.3">v0.3<small>方块模型</small></button>
+        <button class="ver-btn" data-v="v0.4">v0.4<small>噪点分析</small></button>
+        <button class="ver-btn on" data-v="v1.0">v1.0<small>上线基线</small></button>
+      </div>
+      <div class="srclink anim d5" style="margin-top:auto;">Fractured Orb · <a href="https://www.shadertoy.com/view/ttycWW" target="_blank" rel="noopener">原网址 shadertoy.com/view/ttycWW ↗</a></div>
+    </div>
+    <div class="demo demo-sm anim d2" id="verdemo">
+    </div>
+  </section>
+
+  <!-- 21 · 同时开发 -->
+  <section class="slide">
+    <h2 class="title anim d1" style="font-size:34px;">同时开发：如果我希望同时开发多个功能怎么做</h2>
+    <div class="qa anim d2"><span class="ask">问ai：</span>如何在zcode中使用git worktree同时开发一个项目的多个功能</div>
+  </section>
+
+  <!-- 22 · 发布 -->
+  <section class="slide">
+    <h2 class="title anim d1" style="font-size:34px;">发布：如果我希望发布这个项目怎么做</h2>
+    <div class="qa anim d2"><span class="ask">问ai：</span>使用github page发布我的项目</div>
+  </section>
+
+  <!-- 23 · 情感目标 · 两条路径 -->
+  <section class="slide">
+    <h2 class="title anim d1" style="font-size:31px; max-width:1080px;">小组选择自己的情感目标：一个情感词 + 一个动作词，任意语序组合</h2>
+    <div class="cols" style="max-width:1080px;">
+      <div class="card anim d2">
+        <h3 style="color:var(--acc);">Your Art Your Tool 工作坊的最简路径</h3>
+        <p style="margin-top:10px;">在shadertoy上面找到一个艺术效果，并且对他进行修改，能够体现你的情感目标。小组三人要有联系，但是也要有足够的区分度。</p>
+      </div>
+      <div class="card anim d3">
+        <h3 style="color:var(--acc);">Your Art Your Tool 工作坊的高级路径</h3>
+        <p style="margin-top:10px;">使用ai从情绪版开始创作</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 24 · 下周安排 -->
+  <section class="slide statement">
+    <div class="anim d2" style="font-size:92px; line-height:1.3;">
+      <span style="font-family:var(--light); font-weight:400;">下周三点半开始</span><br>
+      <span style="color:var(--acc); font-weight:700;">Workshop Exhibition</span>
+    </div>
+  </section>
+
+  <!-- 25 · 结尾（无文字，反相空页） -->
+  <section class="slide s-end dark" style="display:flex; flex-direction:column; justify-content:center; align-items:center;">
+  </section>
+
+  <!-- 评论图层（不参与翻页） -->
+  <div id="cmarkers"></div>
+  <div id="selRect"></div>
+  <div id="commentOverlay"></div>
+  <div id="cpopup"></div>
+
+</div>
+
+<!-- chrome -->
+<div class="navzone" id="navprev">‹</div>
+<div class="navzone" id="navnext">›</div>
+<div id="progress"><i></i></div>
+<div id="cmodebar"></div>
+<div id="filehint"><span>当前是 file:// 直接打开 —— 部分示例（fractured-orb、版本馆）需要本地服务器才能加载。请双击 <b>启动HTML版PPT.bat</b>。</span><button id="filehint-close">×</button></div>
+<div id="overview">
+  <h3>Slides — 点击跳转 · Esc 关闭</h3>
+  <div id="ovgrid"></div>
+</div>
+
+<script>
+(function () {
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total = slides.length;
+  const titles = ['封面','AI时代 人应该做什么','ilya 引言','以AI，重做人','课程目标','课程目标：以AI，重做人','课程作业','Your Art，Your Tool','两周工作坊','分组','每组三人','情感目标','Phase 1 · Make a copy','情感目标 · 最简路径','Phase 2 · 参数slider','Phase 2 · sphere->cube','Phase 2 · 紫金花','Phase 2 · 交互教材','Phase 2 · 自制笔刷','版本管理 · 版本馆','同时开发 · worktree','发布 · github page','两条路径','下周安排','结尾'];
+  const liveTitles = {7:'LIVE',13:'LIVE',15:'LIVE',16:'LIVE',17:'LIVE',18:'LIVE',19:'LIVE',20:'LIVE'};
+
+  let cur = -1;
+
+  /* --- 总览 --- */
+  const ov = document.getElementById('overview'), ovgrid = document.getElementById('ovgrid');
+  titles.forEach((t, i) => {
+    const c = document.createElement('div');
+    c.className = 'ov-card';
+    c.innerHTML = '<div class="n">' + String(i + 1).padStart(2, '0') + '</div><div class="t">' + t + '</div>' + (liveTitles[i] ? '<span class="live-tag">● 实时演示</span>' : '');
+    c.onclick = () => { toggleOverview(false); goTo(i); };
+    ovgrid.appendChild(c);
+  });
+  function toggleOverview(force) {
+    const open = force !== undefined ? force : !ov.classList.contains('open');
+    ov.classList.toggle('open', open);
+    Array.from(ovgrid.children).forEach((c, i) => c.classList.toggle('cur', i === cur));
+  }
+
+  /* --- iframe 懒挂载：进入页面挂载、离开即卸载（释放 WebGL） --- */
+  /* 焦点在内嵌演示里时，键盘事件到不了父页面：同源转发 C 键（评论模式） */
+  function hookIframeKeys(f) {
+    f.addEventListener('load', () => {
+      try {
+        f.contentDocument.addEventListener('keydown', ev => {
+          if ((ev.key === 'c' || ev.key === 'C') && !(ev.target && (ev.target.tagName === 'TEXTAREA' || ev.target.tagName === 'INPUT' || ev.target.isContentEditable))) {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'c' }));
+          }
+        }, true);
+      } catch (e) {}
+    });
+  }
+  /* 内嵌 orb 演示默认降到"流畅(≈720p)"，避免上课机器卡顿 */
+  function hookResCap(f) {
+    f.addEventListener('load', () => {
+      setTimeout(() => {
+        try {
+          for (const sel of f.contentDocument.querySelectorAll('select')) {
+            const ops = [...sel.options].map(o => o.value);
+            if (ops.includes('0.4') && ops.includes('99')) { sel.value = '0.4'; sel.dispatchEvent(new Event('change')); break; }
+          }
+        } catch (e) {}
+      }, 400);
+    });
+  }
+  function mountDemo(slide) {
+    slide.querySelectorAll('.demo[data-src]').forEach(box => {
+      if (box.querySelector('iframe')) return;
+      const f = document.createElement('iframe');
+      f.setAttribute('allowfullscreen', '');
+      f.setAttribute('loading', 'eager');
+      hookIframeKeys(f);
+      if (/fractured-orb|orb-versions/.test(box.dataset.src)) hookResCap(f);
+      f.src = box.dataset.src;
+      box.appendChild(f);
+    });
+  }
+  function mountBg(slide) {
+    const holder = slide.querySelector('[data-livebg]');
+    if (!holder || holder.querySelector('iframe')) return;
+    const f = document.createElement('iframe');
+    hookIframeKeys(f);
+    f.src = slide.dataset.bg;
+    f.tabIndex = -1;
+    f.addEventListener('load', () => {
+      /* 同源：藏掉示例自带的控制面板，让它纯做背景 */
+      try {
+        const st = document.createElement('style');
+        st.textContent = '#panel,#patHandles,#patlinks{display:none!important}';
+        f.contentDocument.head.appendChild(st);
+      } catch (e) {}
+    });
+    holder.appendChild(f);
+  }
+  function unmountAll(slide) {
+    slide.querySelectorAll('.demo iframe, [data-livebg] iframe').forEach(f => f.remove());
+    const vd = slide.querySelector('#verdemo');
+    if (vd) vd.querySelectorAll('iframe').forEach(f => f.remove());
+  }
+
+  /* --- 版本馆 --- */
+  const verdemo = document.getElementById('verdemo');
+  document.querySelectorAll('.ver-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ver-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      showVersion(btn.dataset.v);
+    });
+  });
+  function showVersion(v) {
+    verdemo.querySelectorAll('iframe').forEach(f => f.remove());
+    const f = document.createElement('iframe');
+    f.setAttribute('allowfullscreen', '');
+    hookIframeKeys(f);
+    hookResCap(f);
+    f.src = '3d composition/orb-versions/' + v + '/index.html';
+    verdemo.appendChild(f);
+  }
+
+  /* --- 翻页 --- */
+  const progress = document.querySelector('#progress i');
+  function goTo(i) {
+    i = Math.max(0, Math.min(total - 1, i));
+    if (i === cur) return;
+    if (cur >= 0) { slides[cur].classList.remove('active'); unmountAll(slides[cur]); }
+    cur = i;
+    const s = slides[cur];
+    s.classList.add('active');
+    mountBg(s);
+    mountDemo(s);
+    if (s.querySelector('#verdemo')) showVersion(document.querySelector('.ver-btn.on').dataset.v);
+    progress.style.width = ((cur + 1) / total * 100) + '%';
+    history.replaceState(null, '', '#' + (cur + 1));
+    Array.from(ovgrid.children).forEach((c, k) => c.classList.toggle('cur', k === cur));
+    renderMarkers();
+  }
+
+  document.getElementById('navprev').onclick = () => goTo(cur - 1);
+  document.getElementById('navnext').onclick = () => goTo(cur + 1);
+  /* 进度条：点击跳到对应页 */
+  document.getElementById('progress').addEventListener('click', e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    goTo(Math.round((e.clientX - r.left) / r.width * (total - 1)));
+  });
+  /* 双击空白处打开总览 */
+  document.addEventListener('dblclick', e => { const t = e.target instanceof Element ? e.target : null; if (t && !t.closest('a,button,#overview')) toggleOverview(); });
+  document.getElementById('filehint-close').onclick = () => document.getElementById('filehint').style.display = 'none';
+
+  document.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) {
+      if (e.key === 'Escape') e.target.blur();
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); goTo(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); goTo(cur - 1); }
+    else if (e.key === 'Home') goTo(0);
+    else if (e.key === 'End') goTo(total - 1);
+    else if (e.key === 'o' || e.key === 'O') toggleOverview();
+    else if (e.key === 'f' || e.key === 'F') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); }
+    else if (e.key === 'c' || e.key === 'C') toggleCommentMode();
+    else if (e.key === 'Escape') { if (document.body.classList.contains('cmode')) toggleCommentMode(false); toggleOverview(false); }
+  });
+
+  /* 触屏滑动 */
+  let tx = null;
+  document.addEventListener('touchstart', e => tx = e.touches[0].clientX, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (tx === null) return;
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 60) goTo(cur + (dx < 0 ? 1 : -1));
+    tx = null;
+  }, { passive: true });
+
+  /* 舞台缩放 */
+  function fit() {
+    const s = Math.min(innerWidth / 1280, innerHeight / 720);
+    document.getElementById('stage').style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* hash 变化（浏览器前进/后退）同步翻页 */
+  addEventListener('hashchange', () => {
+    const h = parseInt(location.hash.slice(1), 10);
+    if (!isNaN(h) && h - 1 !== cur) goTo(h - 1);
+  });
+
+  /* file:// 提示 */
+  if (location.protocol === 'file:') document.getElementById('filehint').style.display = 'flex';
+
+  /* =============== 评论系统（按 C 进入框选评论模式） =============== */
+  const stage = document.getElementById('stage');
+  const overlay = document.getElementById('commentOverlay');
+  const markersBox = document.getElementById('cmarkers');
+  const selRect = document.getElementById('selRect');
+  const popup = document.getElementById('cpopup');
+  const cm = { comments: [], offline: false };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
+  function globalNo(c) { return cm.comments.indexOf(c) + 1; }
+
+  function toggleCommentMode(force) {
+    const on = force !== undefined ? force : !document.body.classList.contains('cmode');
+    document.body.classList.toggle('cmode', on);
+    if (!on) { hidePopup(); selRect.style.display = 'none'; }
+    renderMarkers();
+  }
+
+  /* 舞台坐标（1280×720 空间，随缩放不变） */
+  function stagePos(e) {
+    const r = stage.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(1280, (e.clientX - r.left) / r.width * 1280)),
+      y: Math.max(0, Math.min(720, (e.clientY - r.top) / r.height * 720))
+    };
+  }
+
+  async function loadComments() {
+    try {
+      const r = await fetch('api/comments', { cache: 'no-store' });
+      if (r.ok) { cm.comments = await r.json(); cm.offline = false; renderMarkers(); return; }
+    } catch (e) {}
+    cm.offline = true;
+  }
+  async function apiAdd(c) {
+    try {
+      const r = await fetch('api/comments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) });
+      if (r.ok) return await r.json();
+    } catch (e) {}
+    return null;
+  }
+  async function apiUpdate(payload) {
+    try {
+      const r = await fetch('api/comments/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+
+  function renderMarkers() {
+    markersBox.innerHTML = '';
+    if (!document.body.classList.contains('cmode')) return;
+    cm.comments.forEach(c => {
+      if (c.page !== cur + 1) return;
+      const d = document.createElement('div');
+      d.className = 'cmark' + (c.resolved ? ' done' : '');
+      d.style.left = c.x + 'px'; d.style.top = c.y + 'px';
+      d.style.width = Math.max(c.w, 6) + 'px'; d.style.height = Math.max(c.h, 6) + 'px';
+      d.innerHTML = '<span class="cn">' + globalNo(c) + '</span>';
+      d.addEventListener('click', e => { e.stopPropagation(); showCommentPopup(c, d); });
+      markersBox.appendChild(d);
+    });
+  }
+
+  function hidePopup() { stopVoice(); popup.style.display = 'none'; popup.innerHTML = ''; }
+
+  /* --- 语音输入（Web Speech API，Edge/Chrome 内置，zh-CN） --- */
+  let recog = null, recOn = false;
+  function stopVoice() { if (recog && recOn) { try { recog.stop(); } catch (e) {} } }
+  function toggleVoice(ta, status, btn) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { status.textContent = '当前浏览器不支持网页语音识别，请用 Edge 或 Chrome。'; status.style.display = 'block'; return; }
+    if (recOn) { recog.stop(); return; }
+    recog = new SR();
+    recog.lang = 'zh-CN'; recog.continuous = true; recog.interimResults = true;
+    const base = ta.value;
+    let finalText = '';
+    recog.onstart = () => { recOn = true; btn.classList.add('rec'); btn.textContent = '停止'; };
+    recog.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += t; else interim += t;
+      }
+      ta.value = base + finalText + interim;
+    };
+    recog.onend = () => { recOn = false; btn.classList.remove('rec'); btn.textContent = '语音'; };
+    recog.onerror = ev => {
+      const msg = { 'not-allowed': '麦克风权限被拒绝：请在浏览器地址栏允许麦克风后重试',
+                    'no-speech': '没检测到说话，再按一次语音开始',
+                    'network': '语音识别服务需要联网',
+                    'audio-capture': '没检测到麦克风设备',
+                    'service-not-allowed': '语音服务不可用' }[ev.error] || ('语音识别错误：' + ev.error);
+      status.textContent = msg; status.style.display = 'block';
+    };
+    try { recog.start(); status.style.display = 'none'; }
+    catch (e) { status.textContent = '语音启动失败，请重试。'; status.style.display = 'block'; }
+  }
+
+  /* 在舞台坐标里放置弹窗（弹窗 330×约220） */
+  function placePopup(x, y) {
+    popup.style.left = Math.max(8, Math.min(x, 1280 - 346)) + 'px';
+    popup.style.top = Math.max(8, Math.min(y, 720 - 250)) + 'px';
+  }
+
+  function showInputPopup(rect) {
+    popup.innerHTML =
+      '<div class="cmeta">第 <b>' + (cur + 1) + '</b> 页 · 框选区域 ' + Math.round(rect.w) + '×' + Math.round(rect.h) + '</div>' +
+      '<textarea id="cinput" placeholder="针对这个区域的意见…（语音或打字，Ctrl+Enter 保存）"></textarea>' +
+      '<div class="csavefail" id="cstatus"></div>' +
+      '<div class="csavefail" id="csavefail">保存失败：请通过 启动HTML版PPT.bat（本地服务器）打开后再试。</div>' +
+      '<div class="cbtns"><button id="ccancel">取消</button><button id="cmic" class="micbtn">语音</button><button id="csave" class="primary">保存评论</button></div>';
+    placePopup(rect.x, rect.y + rect.h + 10);
+    popup.style.display = 'block';
+    const ta = document.getElementById('cinput');
+    ta.focus();
+    const save = async () => {
+      const text = ta.value.trim();
+      if (!text) { hidePopup(); return; }
+      const saved = await apiAdd({ page: cur + 1, x: rect.x, y: rect.y, w: rect.w, h: rect.h, text: text });
+      if (saved) { cm.comments.push(saved); hidePopup(); renderMarkers(); }
+      else document.getElementById('csavefail').style.display = 'block';
+    };
+    document.getElementById('csave').onclick = save;
+    document.getElementById('ccancel').onclick = hidePopup;
+    const micBtn = document.getElementById('cmic'), status = document.getElementById('cstatus');
+    micBtn.onclick = () => toggleVoice(ta, status, micBtn);
+    ta.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) save();
+      else if (ev.key.toLowerCase() === 'm' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); toggleVoice(ta, status, micBtn); }
+    });
+  }
+
+  function showCommentPopup(c, el) {
+    const r = { x: parseFloat(el.style.left), y: parseFloat(el.style.top), w: parseFloat(el.style.width), h: parseFloat(el.style.height) };
+    popup.innerHTML =
+      '<div class="cmeta">第 <b>' + c.page + '</b> 页 · ' + esc(c.time || '') + (c.resolved ? ' · <b>已解决</b>' : '') + '</div>' +
+      '<div class="ctext">' + esc(c.text) + '</div>' +
+      '<div class="cbtns">' +
+      '<button id="cdel">删除</button>' +
+      '<button id="ctoggle" class="accbtn">' + (c.resolved ? '重新打开' : '标记解决') + '</button>' +
+      '<button id="cclose">关闭</button></div>';
+    placePopup(r.x, r.y + r.h + 10);
+    popup.style.display = 'block';
+    document.getElementById('cclose').onclick = hidePopup;
+    document.getElementById('cdel').onclick = async () => { if (await apiUpdate({ id: c.id, delete: true })) { cm.comments = cm.comments.filter(k => k.id !== c.id); hidePopup(); renderMarkers(); } };
+    document.getElementById('ctoggle').onclick = async () => { if (await apiUpdate({ id: c.id, resolved: !c.resolved })) { c.resolved = !c.resolved; hidePopup(); renderMarkers(); } };
+  }
+
+  /* 框选拖拽 */
+  let dragStart = null;
+  overlay.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    dragStart = stagePos(e);
+    selRect.style.display = 'block';
+    selRect.style.left = dragStart.x + 'px'; selRect.style.top = dragStart.y + 'px';
+    selRect.style.width = '0px'; selRect.style.height = '0px';
+    e.preventDefault();
+  });
+  addEventListener('mousemove', e => {
+    if (!dragStart) return;
+    const p = stagePos(e);
+    const x = Math.min(dragStart.x, p.x), y = Math.min(dragStart.y, p.y);
+    const w = Math.abs(p.x - dragStart.x), h = Math.abs(p.y - dragStart.y);
+    selRect.style.left = x + 'px'; selRect.style.top = y + 'px';
+    selRect.style.width = w + 'px'; selRect.style.height = h + 'px';
+  });
+  addEventListener('mouseup', e => {
+    if (!dragStart) return;
+    const p = stagePos(e);
+    const rect = {
+      x: Math.round(Math.min(dragStart.x, p.x)), y: Math.round(Math.min(dragStart.y, p.y)),
+      w: Math.round(Math.abs(p.x - dragStart.x)), h: Math.round(Math.abs(p.y - dragStart.y))
+    };
+    dragStart = null;
+    selRect.style.display = 'none';
+    if (rect.w < 12 || rect.h < 12) { hidePopup(); return; }  /* 太小视为点击 */
+    showInputPopup(rect);
+  });
+
+  /* 总览里显示每页评论数 */
+  const _toggleOverview = toggleOverview;
+  toggleOverview = function (force) {
+    _toggleOverview(force);
+    if (ov.classList.contains('open')) {
+      Array.from(ovgrid.children).forEach((card, i) => {
+        const n = cm.comments.filter(c => c.page === i + 1 && !c.resolved).length;
+        let tag = card.querySelector('.cm-tag');
+        if (n > 0 && !tag) { tag = document.createElement('span'); tag.className = 'cm-tag live-tag'; card.appendChild(tag); }
+        if (tag) tag.textContent = n > 0 ? '● 评论 ×' + n : '';
+      });
+    }
+  };
+
+  /* 初始页（支持 #7 深链），需在评论系统就绪后调用 */
+  const h = parseInt(location.hash.slice(1), 10);
+  goTo(isNaN(h) ? 0 : h - 1);
+  loadComments();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Celestia Glass — 笔刷版 (Shadertoy WX3fRn 本地复刻)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d12; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
+  #glcanvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+  .card {
+    position: fixed; top: 16px; left: 16px; max-width: 330px;
+    padding: 14px 18px; border-radius: 14px;
+    background: rgba(15, 18, 28, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    color: #e8eaf2; user-select: none; z-index: 4;
+  }
+  .card h1 {
+    font-size: 18px; font-weight: 650; letter-spacing: 0.3px;
+    background: linear-gradient(100deg, #ffd76e, #ff9ecb 55%, #9ec5ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .card .sub { margin-top: 4px; font-size: 12.5px; color: #aab2c8; line-height: 1.6; }
+  .card a { color: #9ec5ff; text-decoration: none; border-bottom: 1px dotted rgba(158,197,255,.5); }
+  .card a:hover { border-bottom-style: solid; }
+  .card .lic { margin-top: 6px; font-size: 11.5px; color: #7d8699; }
+  .card .src { margin-top: 6px; font-size: 11px; color: #66708a; font-family: Consolas, monospace; }
+
+  #hint {
+    position: fixed; left: 16px; bottom: 14px;
+    font-size: 12px; color: rgba(232,234,242,.55); user-select: none; z-index: 4;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  #fps {
+    position: fixed; right: 16px; bottom: 14px;
+    font-size: 12px; font-family: Consolas, monospace;
+    color: rgba(232,234,242,.6); user-select: none; z-index: 4;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  #error {
+    display: none; position: fixed; inset: 5% 8%; overflow: auto;
+    padding: 16px; border-radius: 12px; z-index: 20;
+    background: rgba(30, 8, 12, 0.92); color: #ff9aa5;
+    border: 1px solid rgba(255, 120, 130, 0.35);
+    font: 12px/1.5 Consolas, monospace; white-space: pre-wrap;
+  }
+
+  /* ---- 控制面板 ---- */
+  #panel {
+    position: fixed; top: 16px; right: 16px; width: 288px;
+    max-height: calc(100vh - 32px); overflow-y: auto;
+    padding: 14px 16px 16px; border-radius: 14px; z-index: 5;
+    background: rgba(15, 18, 28, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    color: #e8eaf2; user-select: none;
+    transition: transform .25s ease;
+    scrollbar-width: thin;
+  }
+  #panel.hidden { transform: translateX(calc(100% + 24px)); }
+  .p-head { font-size: 13.5px; font-weight: 650; color: #dfe6f5; letter-spacing: .5px; }
+  .p-head .p-tip { float: right; font-size: 11px; font-weight: 400; color: #7d8699; }
+  .sec { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+  .sec-t { font-size: 12.5px; font-weight: 600; color: #cdd5e8; margin-bottom: 7px; }
+  .sec-t .sec-s { font-weight: 400; font-size: 11px; color: #7d8699; margin-left: 6px; }
+  .row { margin: 7px 0; }
+  .row label { display: grid; grid-template-columns: 62px 1fr 46px; gap: 8px; align-items: center;
+    font-size: 12px; color: #aab2c8; }
+  .row input[type=range] { width: 100%; accent-color: #9ec5ff; }
+  .row output { font-family: Consolas, monospace; font-size: 11px; color: #8f99b3; text-align: right; }
+  .seg, .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button, .btns button {
+    flex: 1 0 auto; padding: 5px 8px; font-size: 12px; cursor: pointer;
+    color: #cdd5e8; background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 8px;
+  }
+  .seg button.on, .btns button.on {
+    background: rgba(158,197,255,.25); border-color: rgba(158,197,255,.6); color: #eaf2ff;
+  }
+  .pals { display: flex; gap: 8px; margin-top: 8px; }
+  .pals button {
+    flex: 1; height: 28px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.18); font-size: 11px;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.55);
+  }
+  .pals button.on { outline: 2px solid rgba(158,197,255,.85); outline-offset: 1px; }
+  .fillrow { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .fillrow > span { font-size: 12px; color: #aab2c8; }
+  .fillrow .pals { flex: 1; margin-top: 0; }
+  .fillrow .pals button { height: 22px; padding: 0; }
+
+  #panelToggle {
+    position: fixed; right: 16px; bottom: 38px; z-index: 6; cursor: pointer;
+    padding: 6px 12px; font-size: 12px; color: #cdd5e8;
+    background: rgba(15,18,28,.62); border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px; backdrop-filter: blur(10px);
+  }
+  #brushCursor {
+    position: fixed; border: 1.5px solid #fff; border-radius: 50%;
+    pointer-events: none; mix-blend-mode: difference; z-index: 9;
+    transform: translate(-50%,-50%); display: none;
+  }
+  #overlay {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 3;
+  }
+  .chk { display: flex; gap: 8px; align-items: center; margin: 8px 0;
+    font-size: 12px; color: #aab2c8; cursor: pointer; }
+  .chk input { accent-color: #9ec5ff; }
+</style>
+</head>
+<body>
+<canvas id="glcanvas"></canvas>
+<canvas id="overlay"></canvas>
+
+<div class="card">
+  <h1>Celestia Glass · 笔刷版</h1>
+  <div class="sub">
+    本地复刻 · 原作者 <b>lonelyang</b> ·
+    <a href="https://www.shadertoy.com/view/WX3fRn" target="_blank" rel="noopener">shadertoy.com/view/WX3fRn</a>
+  </div>
+  <div class="lic">许可：CC BY-NC-SA 3.0（署名—非商业性—相同方式共享）</div>
+  <div class="src" id="srcinfo"></div>
+</div>
+
+<div id="hint">笔刷「关」时按住任意处拖动 = 编辑最近的曲线 · 选笔刷后拖拽绘制 · 空格 暂停 · H 面板</div>
+<div id="fps"></div>
+<pre id="error"></pre>
+
+<div id="panel">
+  <div class="p-head">控制面板 <span class="p-tip">H 收起</span></div>
+
+  <div class="sec">
+    <div class="sec-t">笔刷 <span class="sec-s">花纹/太阳形变可直接弯折曲线</span></div>
+    <div class="seg" id="brushSeg">
+      <button data-mode="-1" class="on">关</button>
+      <button data-mode="0">扭曲</button>
+      <button data-mode="1">漩涡</button>
+      <button data-mode="2">膨胀</button>
+      <button data-mode="3">上色</button>
+      <button data-mode="5">花纹</button>
+      <button data-mode="6">填色</button>
+      <button data-mode="7">太阳形变</button>
+      <button data-mode="4">擦除</button>
+    </div>
+    <div class="row"><label>笔刷大小<input type="range" id="bs" min="0.02" max="0.3" step="0.005" value="0.09"><output id="bs-o"></output></label></div>
+    <div class="row"><label>笔刷强度<input type="range" id="bst" min="0.2" max="3" step="0.05" value="1"><output id="bst-o"></output></label></div>
+    <div class="row"><label>上色色相<input type="range" id="bhue" min="-1" max="1" step="0.02" value="0.3"><output id="bhue-o"></output></label></div>
+    <div class="fillrow"><span>填色颜色</span><div class="pals" id="fillSwatches"></div></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-t">玻璃马赛克</div>
+    <div class="row"><label>格子大小<input type="range" id="cell" min="8" max="80" step="1" value="30"><output id="cell-o"></output></label></div>
+    <div class="row"><label>格线粗细<input type="range" id="edge" min="0" max="1" step="0.005" value="0.1228"><output id="edge-o"></output></label></div>
+    <div class="row"><label>格子抖动<input type="range" id="jitter" min="0" max="1" step="0.01" value="1"><output id="jitter-o"></output></label></div>
+    <div class="row"><label>玻璃高光<input type="range" id="bevel" min="0" max="2" step="0.05" value="1"><output id="bevel-o"></output></label></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-t">背景</div>
+    <div class="row"><label>波浪起伏<input type="range" id="bgWave" min="0" max="0.4" step="0.005" value="0.1"><output id="bgWave-o"></output></label></div>
+    <div class="row"><label>条纹宽度<input type="range" id="stripe" min="0.2" max="2" step="0.01" value="0.7"><output id="stripe-o"></output></label></div>
+    <div class="pals" id="pals"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-t">太阳与翅膀</div>
+    <div class="row"><label>太阳大小<input type="range" id="sunSize" min="0.1" max="0.6" step="0.005" value="0.3"><output id="sunSize-o"></output></label></div>
+    <div class="row"><label>光线数量<input type="range" id="rays" min="3" max="16" step="1" value="8"><output id="rays-o"></output></label></div>
+    <div class="row"><label>光线波动<input type="range" id="rayAmp" min="0" max="0.3" step="0.005" value="0.08"><output id="rayAmp-o"></output></label></div>
+    <div class="row"><label>上下浮动<input type="range" id="sunBob" min="0" max="0.3" step="0.005" value="0.05"><output id="sunBob-o"></output></label></div>
+    <div class="row"><label>翅膀展开<input type="range" id="wing" min="0" max="2" step="0.05" value="1"><output id="wing-o"></output></label></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-t">全局</div>
+    <div class="row"><label>整体色相<input type="range" id="hue" min="-0.5" max="0.5" step="0.005" value="0"><output id="hue-o"></output></label></div>
+    <div class="row"><label>动画速度<input type="range" id="speed" min="0" max="3" step="0.05" value="1"><output id="speed-o"></output></label></div>
+    <label class="chk"><input type="checkbox" id="showHandles" checked> 显示曲线句柄（可直接拖动编辑太阳光线与花纹边界）</label>
+    <div class="btns">
+      <button id="btnCurves">重置曲线</button>
+      <button id="btnClear">清空笔刷</button>
+      <button id="btnReset">重置参数</button>
+      <button id="btnShot">保存图片</button>
+    </div>
+  </div>
+</div>
+<button id="panelToggle">⚙ 控制面板</button>
+<div id="brushCursor"></div>
+
+<!-- file:// 下 fetch 不可用时的内置源码副本（与 shaders/celestia_glass_brush.frag 同步） -->
+<script type="x-shader/x-fragment" id="fallback-shader">
+// Celestia Glass — 笔刷版（本地复刻的参数化改版）
+// 基于 lonelyang 的 "Celestia Glass" https://www.shadertoy.com/view/WX3fRn
+// 上游 Fork 链：harsukh "butterfly stained glass" ← Flopine "ShATI - Soleil"
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+//
+// 本改版说明（仅供学习交流）：
+// - 将原作中的硬编码常量参数化为 uniforms，供本地控制面板实时调整
+//   （马赛克格子/格线/抖动/高光、背景波浪/条纹/配色、太阳大小/光线/浮动、翅膀、整体色相）
+// - uPaint  笔刷场一：RG=全局扭曲位移场，B=局部色相场
+// - uPaint2 笔刷场二：RG=背景花纹变形场（弯曲条纹曲线），B=填色色号，A=填色强度
+// - uPaint3 笔刷场三：RG=太阳变形场（弯曲太阳光线/轮廓曲线）
+//   （填色按 Voronoi 玻璃块的特征点采样，实现整块玻璃上色；
+//     变形场直接弯曲图案的参数曲线，形状保持矢量化清晰渲染）
+// - uRayCtrl/uStripeCtrl 曲线句柄：Illustrator 式可拖拽样条锚点，
+//   分别控制太阳光线脊线与背景条纹边界曲线
+// - 所有笔刷场为中性值、参数取默认值时，渲染结果与原作一致
+
+#define PI 3.1415926
+#define TAU 6.2831853071
+#define dt fract(iTime*0.25)
+#define AAstep(thre, val) smoothstep(-.7,.7,(val-thre)/min(.05,fwidth(val-thre)))
+#define circle(d, s) AAstep(s, length(d))
+#define anim easeInOutQuad(abs(-1.+2.*dt))
+
+// 笔刷场强度：位移场满量程对应的 uv 位移、B 色相场乘数
+#define WARP_AMP 0.4
+#define HUE_BRUSH_AMP 2.0
+
+uniform sampler2D uPaint;   // 笔刷场一（屏幕同分辨率映射）
+uniform sampler2D uPaint2;  // 笔刷场二（屏幕同分辨率映射）
+uniform sampler2D uPaint3;  // 笔刷场三（屏幕同分辨率映射）
+uniform float uCell;        // 马赛克格子密度（原作 30）
+uniform float uEdgeLo;      // 格线宽度下阈（原作 0.01）
+uniform float uEdgeHi;      // 格线宽度上阈（原作 0.06）
+uniform float uJitter;      // 格子抖动 0=整齐 1=原作随机
+uniform float uBevel;       // 玻璃高光/斜面强度（原作 1）
+uniform float uBgWave;      // 背景波浪幅度（原作 0.1）
+uniform float uStripe;      // 背景条纹斜率/宽度（原作 0.7）
+uniform vec3  uPal0;        // 背景调色板 4 色
+uniform vec3  uPal1;
+uniform vec3  uPal2;
+uniform vec3  uPal3;
+uniform float uSunSize;     // 太阳核心半径（原作 0.3）
+uniform float uRays;        // 光线数量（原作 8）
+uniform float uSunBob;      // 太阳上下浮动幅度（原作 0.05）
+uniform float uWing;        // 翅膀展开幅度（原作 1）
+uniform float uHueAll;      // 整体色相偏移（原作 0）
+
+// 曲线句柄（Illustrator 式样条锚点，默认值 = 原作曲线）
+uniform float uRayCtrl[6];     // 太阳光线脊线控制点（太阳坐标系 uu.y 位移）
+uniform float uStripeCtrl[6];  // 花纹边界轮廓控制点（条纹法向位移）
+
+// 由 mainImage 按当前像素写入、供各层读取的笔刷变形场
+vec2 g_stripeWarp = vec2(0.0); // 背景花纹变形（弯曲条纹曲线）
+vec2 g_sunWarp = vec2(0.0);    // 太阳变形（弯曲光线/轮廓曲线）
+
+//https://easings.net/#
+float easeInOutQuad (float x)
+{return x < 0.5 ? 2.0 * x * x : 1.0 - pow(-2.0 * x + 2.0, 2.0) / 2.0;}
+
+float tri (vec2 uv, float size, vec2 ratio)
+{return AAstep(size, max(-uv.x,dot(vec2(uv.x,abs(uv.y)),normalize(ratio))));}
+
+mat2 rot (float a)
+{return mat2(cos(a),-sin(a),sin(a),cos(a));}
+
+vec2 rand (vec2 x)
+{return fract(sin(vec2(dot(x, vec2(1.2,5.5)), dot(x, vec2(4.54,2.41))))*4.45);}
+
+
+void moda (inout vec2 p, float rep)
+{
+    float per = TAU/rep;
+    float a = mod(atan(p.y,p.x),per)-per*0.70;
+    p = vec2(cos(a),sin(a))*length(p);
+}
+
+vec3 voro (vec2 uv)
+{
+    vec2 uv_id = floor(uv);
+    vec2 uv_st = fract(uv);
+
+    vec2 m_diff;
+    vec2 m_point;
+    vec2 m_neighbor;
+    float m_dist = 10.0;
+
+    for (int j= -1; j<=1; j++){
+        for (int i =-1; i<=1; i++){
+            vec2 neighbor = vec2(i, j);
+            vec2 point = mix(vec2(0.5), rand(uv_id+neighbor), uJitter);
+            vec2 diff = neighbor+ point- uv_st;
+
+            float dist = length(diff);
+            if (dist < m_dist){
+                m_dist = dist;
+                m_point = point;
+                m_diff = diff;
+                m_neighbor = neighbor;
+            }
+        }
+    }
+
+    m_dist = 10.0;
+    for(int j = -2; j<= 2; j++){
+     for(int i =-2; i<=2; i++){
+         if (i==0 && j==0) continue;
+         vec2 neighbor = m_neighbor+ vec2(float(i), float(j));
+         vec2 point = mix(vec2(0.5), rand(uv_id+neighbor), uJitter);
+         vec2 diff = neighbor+ point- uv_st;
+         float dist = dot(0.5*(m_diff+diff), normalize(diff-m_diff));
+         m_point= point;
+         m_dist = min(m_dist, dist);
+      }
+    }
+
+    return vec3(m_point, m_dist);
+}
+
+vec3 HueShift (in vec3 Color, in float Shift)
+{
+    vec3 P = vec3(0.55735)*dot(vec3(0.55735),Color);
+    vec3 U = Color-P;
+    vec3 V = cross(vec3(0.55735),U);
+
+    Color = U*cos(Shift*6.2832) + V*sin(Shift*6.2832) + P;
+
+    return Color;
+}
+
+// 曲线句柄的样条插值（Catmull-Rom）
+float catmull (float p0, float p1, float p2, float p3, float t)
+{
+    float t2 = t*t; float t3 = t2*t;
+    return 0.5*((2.0*p1) + (-p0+p2)*t
+        + (2.0*p0-5.0*p1+4.0*p2-p3)*t2 + (-p0+3.0*p1-3.0*p2+p3)*t3);
+}
+
+// 太阳光线脊线：tt∈[0,1] 沿光线长度，锚点由界面句柄编辑
+#define RAY_X0 -0.10
+#define RAY_DX  0.17
+float raySpine (float tt)
+{
+    float f = clamp(tt, 0.0, 1.0)*5.0;
+    float fi = floor(f);
+    float t = f - fi;
+    int i0 = int(max(fi-1.0, 0.0));
+    int i1 = int(fi);
+    int i2 = int(min(fi+1.0, 5.0));
+    int i3 = int(min(fi+2.0, 5.0));
+    return catmull(uRayCtrl[i0], uRayCtrl[i1], uRayCtrl[i2], uRayCtrl[i3], t);
+}
+
+// 花纹边界轮廓：u 为沿线坐标，锚点由界面句柄编辑
+float stripeProfile (float u)
+{
+    float f = clamp((u + 1.2)/0.48, 0.0, 5.0);
+    float fi = floor(f);
+    float t = f - fi;
+    int i0 = int(max(fi-1.0, 0.0));
+    int i1 = int(fi);
+    int i2 = int(min(fi+1.0, 5.0));
+    int i3 = int(min(fi+2.0, 5.0));
+    return catmull(uStripeCtrl[i0], uStripeCtrl[i1], uStripeCtrl[i2], uStripeCtrl[i3], t);
+}
+
+// 填色笔刷：在玻璃块的特征点处采样填色场，让整块玻璃一起变色
+vec4 cellFill (vec2 uvScaled, vec3 v, float detail)
+{
+    vec2 feat = (floor(uvScaled) + v.xy) / detail;         // 特征点（层 uv 空间）
+    vec2 fscr = feat * iResolution.y + 0.5 * iResolution.xy; // 对应屏幕像素
+    return texture(uPaint2, fscr / iResolution.xy);
+}
+
+vec4 suns (vec2 uv)
+{
+    uv += g_sunWarp;           // 太阳形变笔刷：直接弯曲太阳的曲线
+    uv *= 3.0;
+    uv.y -= anim*uSunBob;
+    float size = uSunSize;
+    float center = clamp(1.-circle(uv,size),0.,1.);
+    float outer = clamp(1.-(circle(uv,size*1.35)+(center)),0.,1.);
+    vec2 uu = uv;
+    moda(uu,uRays);
+    uu.x -= size;
+    uu.y += raySpine((uu.x - RAY_X0)/(RAY_DX*5.0));
+    float pales = clamp(1.0-(tri(uu,0.2, vec2(0.25,0.8))+outer+center),0.0,1.0);
+    vec3 col = vec3(0.95,0.75,0.2)*outer+vec3(1.0,0.72,0.52)*pales+vec3(1.,.9,0.6)*center;
+	return vec4(col, clamp(pales+center+outer,0.,1.));
+}
+
+vec4 wings (vec2 uv)
+{
+    uv *= 3.0;
+    uv.y -= 0.4;
+    uv.x = abs(uv.x)-0.7;
+    uv *= rot(anim*0.5*uWing);
+    vec2 uu = uv;
+    uu *= rot(-TAU/8.);
+    uu.y += sin(uu.x*1.5)*0.3;
+    float w1 = tri(uu, 0.14,vec2(0.12,1.));
+    uu.y += sin(uu.x*2.)*0.2;
+    uu.y += 0.1;
+    float w2 = tri(uu, 0.12,vec2(0.15,1.));
+    uu *= rot(TAU/15.);
+    uu.y += 0.1;
+    float w3 = tri(uu, 0.1,vec2(0.2,1.));
+    float wing = clamp(1.-w1*w2*w3*circle(uv+vec2(0.13,0.1),0.2),0.,1.);
+    return vec4(wing);
+}
+
+vec3 background (vec2 uv)
+{
+    uv += g_stripeWarp;        // 花纹笔刷：直接弯曲条纹曲线
+    uv.y += sin(uv.x*5.+iTime*0.25)*uBgWave;
+    vec3 col;
+    float prof = stripeProfile((uv.x - uv.y)*0.70710678);
+    float mask = floor((abs(uv.x + uv.y)*uStripe-0.2 + prof)*3.)/3.;
+    if (mask<0.2) col = uPal0;
+    else if (mask>=0.2 && mask<0.5) col = uPal1;
+    else if (mask>=0.5 && mask<0.7) col = uPal2;
+    else if (mask>=0.7) col = uPal3;
+    return col;
+}
+
+vec3 back_grid (vec2 uv, float detail)
+{
+    vec3 mane = background(uv*2.0f);
+    uv *= detail;
+    vec3 v = voro(uv);
+    float svz = smoothstep(uEdgeLo,uEdgeHi, v.z);
+    vec3 col= clamp(mix(vec3(v.x*0.5, v.y*0.75, 0.7)*1.5,mane,0.75)*svz,0.,1.);
+    col= HueShift(col, (-uv.y)*0.01);
+    col+= (0.15-0.1*(-0.2*uv.y))*svz*uBevel;
+    //col-= (0.1*(-0.2*uv.y))*svz;
+    col= (((col-0.5)*0.85)+0.5)*svz;
+    // 填色笔刷（整块上色，保留格线缝隙）
+    vec4 pf = cellFill(uv, v, detail);
+    vec3 fillCol = pf.b < 0.25 ? uPal0 : (pf.b < 0.5 ? uPal1 : (pf.b < 0.75 ? uPal2 : uPal3));
+    col = mix(col, fillCol, pf.a * svz);
+    return col;
+}
+
+vec3 cutiemark_grid (vec2 uv, float detail)
+{
+    vec3 suns = suns(uv).rgb;
+    uv *= detail;
+    vec3 v = voro(uv);
+    float svz = smoothstep(uEdgeLo,uEdgeHi, v.z);
+    vec3 col= clamp(mix(vec3(1.0, v.x*0.7, v.y*0.2),suns,0.75)*svz,0.,1.);
+    col= HueShift(col, (-uv.y)*0.002);
+    col+= 0.2*svz;
+    col.yz+=(-0.1*(-0.2*uv.y))*svz*uBevel;
+    // 填色笔刷（整块上色，保留格线缝隙）
+    vec4 pf = cellFill(uv, v, detail);
+    vec3 fillCol = pf.b < 0.25 ? uPal0 : (pf.b < 0.5 ? uPal1 : (pf.b < 0.75 ? uPal2 : uPal3));
+    col = mix(col, fillCol, pf.a * svz);
+    col= (((col-0.5)*0.9)+0.5)*svz;
+    return col;
+}
+
+vec3 sky (vec2 uv){
+    float m1 = clamp((1.0-suns(uv).a),0.0,1.0);
+    return back_grid(uv,uCell) * m1;
+}
+
+vec3 sun (vec2 uv){
+    float m1 = clamp(suns(uv).a-wings(uv).a,0.0,1.0);
+    return cutiemark_grid(uv,uCell) * m1;
+
+}
+
+vec3 wing (vec2 uv){
+    float m1 = clamp(wings(uv).a,0.0,1.0);
+    return cutiemark_grid(uv,uCell) * m1;
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+	vec2 uv0 = (fragCoord-0.5*iResolution.xy)/iResolution.y;
+
+	// 笔刷场一：RG=全局扭曲位移，B=局部色相
+	vec4 paint = texture(uPaint, fragCoord/iResolution.xy);
+	vec2 uv = uv0 + (paint.rg-0.5)*WARP_AMP;
+	float hueBrush = (paint.b-0.5)*HUE_BRUSH_AMP;
+
+	// 笔刷场二：RG=花纹变形（BA=填色由 cellFill 按块采样）
+	vec4 paint2 = texture(uPaint2, fragCoord/iResolution.xy);
+	g_stripeWarp = (paint2.rg-0.5)*WARP_AMP;
+
+	// 笔刷场三：RG=太阳变形
+	vec4 paint3 = texture(uPaint3, fragCoord/iResolution.xy);
+	g_sunWarp = (paint3.rg-0.5)*WARP_AMP;
+
+	vec3 c = vec3(0.01,0.05,0.008);
+
+    c+=sky(uv);
+    c+=wing(uv);
+    c+=sun(uv);
+
+    c = HueShift(c, uHueAll*6.2832 + hueBrush);
+
+    fragColor = vec4(c, 1.);
+}
+</script>
+
+<script>
+"use strict";
+
+const VERT_SRC = `#version 300 es
+layout(location=0) in vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+// Shadertoy 兼容的片元着色器包装：用户代码只需提供 mainImage()
+const FRAG_HEADER = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+precision highp samplerCube;
+
+uniform vec3  iResolution;           // 视口分辨率 (宽, 高, 像素长宽比)
+uniform float iTime;                 // 运行时间（秒）
+uniform float iTimeDelta;            // 帧间隔（秒）
+uniform int   iFrame;                // 帧序号
+uniform float iChannelTime[4];       // 各通道时间
+uniform vec3  iChannelResolution[4]; // 各通道分辨率
+uniform vec4  iMouse;                // 保留标准接口
+uniform vec4  iDate;                 // (年, 月, 日, 当日秒数)
+uniform float iSampleRate;           // 音频采样率(44100)
+
+out vec4 outColor;
+`;
+
+const FRAG_FOOTER = `
+void main() { mainImage(outColor, gl_FragCoord.xy); }
+`;
+
+// 笔刷场更新着色器：把笔刷操作叠加到上一帧的笔刷纹理上（ping-pong）
+// 场一(uTarget=0)：RG=全局扭曲 B=色相；场二(uTarget=1)：RG=花纹变形 BA=填色；场三(uTarget=2)：RG=太阳变形
+const SPLAT_SRC = `#version 300 es
+precision highp float;
+uniform sampler2D uPrev;
+uniform vec2  uRes;        // 笔刷纹理尺寸(px)
+uniform vec2  uMouse;      // 笔刷中心(纹理px, GL朝向)
+uniform float uRadius;     // 半径(以纹理高度为单位)
+uniform float uStrength;
+uniform int   uTarget;     // 0/1/2 = 场一/二/三
+uniform int   uMode;       // 0扭曲 1漩涡 2膨胀 3上色 5花纹变形 6填色 7太阳变形 4擦除
+uniform float uHueTarget;  // 上色目标色相(0..1 => -1..1)
+uniform float uFillIdx;    // 填色色号(量化到 4 色)
+uniform float uAmp;        // 位移场满量程对应的uv位移
+uniform float uDt;
+uniform vec2  uDelta;      // 本帧拖拽位移(已换算)
+out vec4 outColor;
+void main() {
+  vec4 prev = texture(uPrev, gl_FragCoord.xy / uRes);
+  vec2 p = gl_FragCoord.xy;
+  float d = length(p - uMouse) / uRes.y;
+  float fall = 1.0 - smoothstep(uRadius * 0.15, uRadius, d);
+  float k = clamp(fall * uStrength, 0.0, 1.0);
+  vec4 o = prev;
+  if (uMode == 0 || uMode == 5 || uMode == 7) {
+    o.rg = clamp(prev.rg + uDelta * fall, 0.02, 0.98);   // 扭曲/花纹/太阳形变：沿笔划弯折曲线
+  } else if (uMode == 1) {
+    vec2 r = (p - uMouse) / uRes.y;
+    o.rg = clamp(prev.rg + vec2(-r.y, r.x) * uDt * 1.4 * uStrength * fall / uAmp, 0.02, 0.98);
+  } else if (uMode == 2) {
+    vec2 r = (p - uMouse) / uRes.y;
+    o.rg = clamp(prev.rg + normalize(r + 1e-5) * uDt * 0.7 * uStrength * fall / uAmp, 0.02, 0.98);
+  } else if (uMode == 3) {
+    o.b = mix(prev.b, uHueTarget, k * 0.4);
+  } else if (uMode == 6) {
+    o.b = mix(prev.b, uFillIdx, k * 0.6);                // 填色: 色号
+    o.a = mix(prev.a, 1.0, k * 0.8);                     // 填色: 强度趋近 1
+  } else {
+    vec4 neutral = vec4(0.5, 0.5, 0.5, uTarget == 1 ? 0.0 : 1.0);
+    o = mix(prev, neutral, k * 3.0);                     // 擦除: 还原本场
+  }
+  if (uTarget != 1) o.a = 1.0;
+  outColor = o;
+}
+`;
+
+const canvas = document.getElementById("glcanvas");
+const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+const errBox = document.getElementById("error");
+function fail(msg) { errBox.style.display = "block"; errBox.textContent += msg + "\n"; throw new Error(msg); }
+if (!gl) fail("此浏览器不支持 WebGL2。");
+
+const NEUTRAL = [0.5, 0.5, 0.5, 1.0];
+const WARP_AMP = 0.4;  // 与着色器内 #define WARP_AMP 保持一致
+
+// ---- 调色板预设（原始色 = 原作硬编码颜色）----
+const PALS = [
+  { name: "原始", colors: [[.4,.7,.7],[.6,.9,.5],[.5,.6,.7],[.9,.6,.9]] },
+  { name: "晚霞", colors: [[.99,.62,.36],[1.0,.82,.48],[.92,.45,.55],[.58,.38,.62]] },
+  { name: "海洋", colors: [[.24,.56,.85],[.42,.82,.80],[.20,.42,.72],[.66,.88,.92]] },
+  { name: "糖果", colors: [[.98,.70,.80],[.65,.90,.95],[.99,.90,.60],[.75,.70,.95]] },
+];
+
+const DEFAULTS = {
+  brushMode: -1, brushSize: 0.09, brushStrength: 1, hueTarget: 0.3, fillIdx: 0,
+  cell: 30, edge: 0.1228, jitter: 1, bevel: 1,
+  bgWave: 0.1, stripe: 0.7, palIdx: 0,
+  sunSize: 0.3, rays: 8, rayAmp: 0.08, sunBob: 0.05, wing: 1,
+  hue: 0, speed: 1, showHandles: true,
+};
+const state = Object.assign({}, DEFAULTS);
+state.rayOff = [0, 0, 0, 0, 0, 0];    // 光线脊线句柄偏移
+state.stripeOff = [0, 0, 0, 0, 0, 0]; // 花纹边界句柄偏移
+
+// ---- 界面绑定 ----
+const $ = id => document.getElementById(id);
+const binders = [];
+function bindRange(id, key, fmt) {
+  const el = $(id), out = $(id + "-o");
+  const show = () => { out.textContent = fmt(state[key]); };
+  el.addEventListener("input", () => {
+    state[key] = parseFloat(el.value);
+    show();
+    if (key === "brushSize") sizeCursor();
+  });
+  binders.push(() => { el.value = state[key]; show(); });
+  show();
+}
+function bindSeg(id, key, attr) {
+  const btns = Array.from($(id).querySelectorAll("button"));
+  btns.forEach(b => b.addEventListener("click", () => {
+    state[key] = attr in b.dataset ? parseFloat(b.dataset[attr]) : b.dataset[attr];
+    btns.forEach(x => x.classList.toggle("on", x === b));
+  }));
+  binders.push(() => btns.forEach(x => x.classList.toggle("on", parseFloat(x.dataset[attr]) === state[key])));
+}
+function sizeCursor() {
+  const c = $("brushCursor");
+  const r = state.brushSize * canvas.clientHeight;
+  c.style.width = c.style.height = r * 2 + "px";
+}
+
+// 笔刷模式按钮
+bindSeg("brushSeg", "brushMode", "mode");
+// 滑杆
+bindRange("bs", "brushSize", v => (v * 100).toFixed(1) + "%");
+bindRange("bst", "brushStrength", v => v.toFixed(2));
+bindRange("bhue", "hueTarget", v => v.toFixed(2));
+bindRange("cell", "cell", v => v.toFixed(0));
+bindRange("edge", "edge", v => {
+  const lo = 0.003 + v * 0.057;
+  return (lo * 1000).toFixed(0) + "/" + (lo * 6000).toFixed(0);
+});
+bindRange("jitter", "jitter", v => v.toFixed(2));
+bindRange("bevel", "bevel", v => v.toFixed(2));
+bindRange("bgWave", "bgWave", v => v.toFixed(3));
+bindRange("stripe", "stripe", v => v.toFixed(2));
+bindRange("sunSize", "sunSize", v => v.toFixed(3));
+bindRange("rays", "rays", v => v.toFixed(0));
+bindRange("rayAmp", "rayAmp", v => v.toFixed(3));
+bindRange("sunBob", "sunBob", v => v.toFixed(3));
+bindRange("wing", "wing", v => v.toFixed(2));
+bindRange("hue", "hue", v => v.toFixed(3));
+bindRange("speed", "speed", v => v.toFixed(2) + "x");
+
+// 调色板按钮
+const palsBox = $("pals");
+PALS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.style.background = "linear-gradient(120deg," + p.colors.map(c =>
+    `rgb(${c.map(x => Math.round(x * 255)).join(",")})`).join(",") + ")";
+  b.addEventListener("click", () => { state.palIdx = i; refreshPals(); refreshSwatches(); });
+  palsBox.appendChild(b);
+});
+function refreshPals() {
+  Array.from(palsBox.children).forEach((b, i) => b.classList.toggle("on", i === state.palIdx));
+}
+refreshPals();
+
+// 填色颜色选择（色板跟随当前调色板）
+const swBox = $("fillSwatches");
+[0, 1, 2, 3].forEach(i => {
+  const b = document.createElement("button");
+  b.addEventListener("click", () => { state.fillIdx = i; refreshSwatches(); });
+  swBox.appendChild(b);
+});
+function refreshSwatches() {
+  Array.from(swBox.children).forEach((b, i) => {
+    const c = PALS[state.palIdx].colors[i];
+    b.style.background = `rgb(${c.map(x => Math.round(x * 255)).join(",")})`;
+    b.classList.toggle("on", i === state.fillIdx);
+  });
+}
+refreshSwatches();
+
+// 面板开关
+const panel = $("panel");
+function togglePanel() { panel.classList.toggle("hidden"); }
+$("panelToggle").addEventListener("click", togglePanel);
+
+// 功能按钮
+$("btnClear").addEventListener("click", () => clearPaint());
+$("btnCurves").addEventListener("click", () => {
+  state.rayOff = [0, 0, 0, 0, 0, 0];
+  state.stripeOff = [0, 0, 0, 0, 0, 0];
+});
+$("btnReset").addEventListener("click", () => {
+  Object.assign(state, DEFAULTS);
+  state.rayOff = [0, 0, 0, 0, 0, 0];
+  state.stripeOff = [0, 0, 0, 0, 0, 0];
+  $("showHandles").checked = true;
+  binders.forEach(f => f());
+  refreshPals();
+  refreshSwatches();
+  sizeCursor();
+});
+$("showHandles").addEventListener("change", e => { state.showHandles = e.target.checked; });
+$("btnShot").addEventListener("click", () => {
+  canvas.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "celestia_glass_brush.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  }, "image/png");
+});
+
+// ---- 曲线句柄（Illustrator 式锚点，直接拖动编辑曲线）----
+// 金色句柄 = 太阳光线脊线（8 条光线共用的母曲线）；蓝色句柄 = 花纹边界轮廓
+const ov = $("overlay"), octx = ov.getContext("2d");
+const RAY_X0 = -0.10, RAY_DX = 0.17;   // 与着色器 raySpine 的参数保持一致
+const SU_U0 = -1.2, SU_DU = 0.48;      // 与着色器 stripeProfile 的参数保持一致
+let curBob = 0, dragHandle = null, hoverHandle = null;
+
+function catmullJS(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return 0.5 * ((2 * p1) + (-p0 + p2) * t
+    + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+function evalSplineCtrl(ctrl, x) { // x 为锚点序号空间 0..5
+  const f = Math.max(0, Math.min(5, x));
+  const i = Math.floor(f), t = f - i;
+  return catmullJS(ctrl[Math.max(i - 1, 0)], ctrl[i], ctrl[Math.min(i + 1, 5)], ctrl[Math.min(i + 2, 5)], t);
+}
+function rayCtrlValues() {
+  // 默认值 = 原作曲线 sin(x*8)*amp，叠加句柄偏移
+  return [0, 1, 2, 3, 4, 5].map(i => Math.sin((RAY_X0 + i * RAY_DX) * 8) * state.rayAmp + state.rayOff[i]);
+}
+function resizeOverlay() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ov.width = Math.round(canvas.clientWidth * dpr);
+  ov.height = Math.round(canvas.clientHeight * dpr);
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function computeHandles() {
+  const h = canvas.clientHeight, cx = canvas.clientWidth / 2, cy = h / 2;
+  const hs = [];
+  const rc = rayCtrlValues();
+  for (let i = 0; i < 6; i++) {
+    const xs = state.sunSize + RAY_X0 + i * RAY_DX;      // 太阳坐标系
+    hs.push({ type: "ray", i, x: cx + xs * (h / 3), y: cy - (rc[i] + curBob) * (h / 3) });
+  }
+  const d = Math.SQRT1_2;
+  for (let i = 0; i < 6; i++) {
+    const u = (SU_U0 + i * SU_DU) / 2;                   // 背景色带按 2x 采样
+    const nOff = (0.2 + 1 / 3 - state.stripeOff[i]) / (2 * state.stripe * Math.SQRT2);
+    hs.push({ type: "stripe", i, x: cx + (d * u + nOff) * h, y: cy - (-d * u + nOff) * h });
+  }
+  return hs;
+}
+function drawOverlay() {
+  octx.clearRect(0, 0, ov.width, ov.height);
+  if (!state.showHandles) return;
+  const h = canvas.clientHeight, cx = canvas.clientWidth / 2, cy = h / 2;
+  const rc = rayCtrlValues();
+  octx.setLineDash([7, 5]);
+  octx.lineWidth = 2.5;
+  octx.strokeStyle = "rgba(255, 215, 110, .35)";
+  octx.beginPath();
+  for (let k = 0; k <= 40; k++) {
+    const tt = k / 40;
+    const xs = state.sunSize + RAY_X0 + tt * RAY_DX * 5;
+    const ys = evalSplineCtrl(rc, tt * 5);
+    const px = cx + xs * (h / 3), py = cy - (ys + curBob) * (h / 3);
+    k ? octx.lineTo(px, py) : octx.moveTo(px, py);
+  }
+  octx.stroke();
+  octx.strokeStyle = "rgba(158, 197, 255, .9)";
+  octx.beginPath();
+  for (let k = 0; k <= 40; k++) {
+    const u = -1.5 + (k / 40) * 3;
+    const prof = evalSplineCtrl(state.stripeOff, (u - SU_U0) / SU_DU);
+    const nOff = (0.2 + 1 / 3 - prof) / (2 * state.stripe * Math.SQRT2);
+    const px = cx + (d2x(u) + nOff) * h, py = cy - (d2y(u) + nOff) * h;
+    k ? octx.lineTo(px, py) : octx.moveTo(px, py);
+  }
+  octx.stroke();
+  octx.setLineDash([]);
+  const hs = computeHandles();
+  for (const hd of hs) {
+    const r = hd === hoverHandle ? 9 : 6;
+    octx.beginPath();
+    octx.arc(hd.x, hd.y, r, 0, Math.PI * 2);
+    octx.fillStyle = hd.type === "ray" ? "#ffd76e" : "#9ec5ff";
+    octx.fill();
+    octx.lineWidth = 1.5;
+    octx.strokeStyle = "#fff";
+    octx.stroke();
+  }
+  window.__handles = hs;
+}
+function d2x(u) { return Math.SQRT1_2 * u / 2; }
+function d2y(u) { return -Math.SQRT1_2 * u / 2; }
+function hitHandle(x, y, allowFar) {
+  if (!state.showHandles) return null;
+  // 1) 句柄圆点（命中半径 24px）
+  let best = null, bd = 24 * 24;
+  for (const hd of computeHandles()) {
+    const dx = hd.x - x, dy = hd.y - y, dd = dx * dx + dy * dy;
+    if (dd < bd) { bd = dd; best = hd; }
+  }
+  if (best) return best;
+  // 2) 曲线附近（12px）：抓取最近的锚点
+  const h = canvas.clientHeight, cx = canvas.clientWidth / 2, cy = h / 2;
+  let bc = null, bcd = 12 * 12;
+  const rc = rayCtrlValues();
+  for (let k = 0; k <= 40; k++) {
+    const tt = k / 40;
+    const xs = state.sunSize + RAY_X0 + tt * RAY_DX * 5;
+    const ys = evalSplineCtrl(rc, tt * 5);
+    const px = cx + xs * (h / 3), py = cy - (ys + curBob) * (h / 3);
+    const dd = (px - x) * (px - x) + (py - y) * (py - y);
+    if (dd < bcd) { bcd = dd; bc = { type: "ray", i: Math.max(0, Math.min(5, Math.round(tt * 5))) }; }
+  }
+  for (let k = 0; k <= 40; k++) {
+    const u = -1.5 + (k / 40) * 3;
+    const prof = evalSplineCtrl(state.stripeOff, (u - SU_U0) / SU_DU);
+    const nOff = (0.2 + 1 / 3 - prof) / (2 * state.stripe * Math.SQRT2);
+    const px = cx + (d2x(u) + nOff) * h, py = cy - (d2y(u) + nOff) * h;
+    const dd = (px - x) * (px - x) + (py - y) * (py - y);
+    if (dd < bcd) { bcd = dd; bc = { type: "stripe", i: Math.max(0, Math.min(5, Math.round((u - SU_U0) / SU_DU))) }; }
+  }
+  if (bc || !allowFar) return bc;
+  // 3) 兜底：笔刷为「关」时，按住画面任意位置 = 编辑最近的曲线锚点（零死区）
+  best = null; bd = Infinity;
+  for (const hd of computeHandles()) {
+    const dx = hd.x - x, dy = hd.y - y, dd = dx * dx + dy * dy;
+    if (dd < bd) { bd = dd; best = hd; }
+  }
+  return best;
+}
+
+// ---- 着色器加载与编译 ----
+async function loadShaderSource() {
+  // 优先从外部文件加载（本地服务器模式，改 .frag 刷新即见效果）；
+  // file:// 直接双击打开时 fetch 不可用，退回内置副本。
+  try {
+    const r = await fetch("shaders/celestia_glass_brush.frag?v=" + Date.now());
+    if (r.ok) { const t = await r.text(); return { src: t, from: "shaders/celestia_glass_brush.frag" }; }
+  } catch (e) { /* file:// */ }
+  const emb = document.getElementById("fallback-shader").textContent.replace(/^\n/, "");
+  return { src: emb, from: "内置副本 (file:// 模式)" };
+}
+
+function compile(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    fail("着色器编译失败:\n" + gl.getShaderInfoLog(sh));
+  }
+  return sh;
+}
+function linkProgram(vsSrc, fsSrc) {
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, vsSrc));
+  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, fsSrc));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    fail("程序链接失败:\n" + gl.getProgramInfoLog(prog));
+  }
+  return prog;
+}
+
+// 全屏三角形（两个程序共用）
+const vao = gl.createVertexArray();
+gl.bindVertexArray(vao);
+const vbo = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+// ---- 笔刷场 ping-pong 纹理 ----
+// 场一 pp1：RG=全局扭曲 B=色相（中性 0.5, alpha 恒 1）
+// 场二 pp2：RG=花纹变形 B=填色色号 A=填色强度（alpha 中性 0）
+// 场三 pp3：RG=太阳变形（中性 0.5, alpha 恒 1）
+const PAINT_H = 384;
+let paintW = 512, pp1, pp2, pp3;
+
+function makePaintTex(w, h, clearColor) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex: t, fbo };
+}
+function initPaint() {
+  paintW = Math.max(64, Math.round(PAINT_H * canvas.width / Math.max(1, canvas.height)));
+  const c1 = [0.5, 0.5, 0.5, 1.0], c2 = [0.5, 0.5, 0.5, 0.0];
+  pp1 = { read: makePaintTex(paintW, PAINT_H, c1), write: makePaintTex(paintW, PAINT_H, c1) };
+  pp2 = { read: makePaintTex(paintW, PAINT_H, c2), write: makePaintTex(paintW, PAINT_H, c2) };
+  pp3 = { read: makePaintTex(paintW, PAINT_H, c1), write: makePaintTex(paintW, PAINT_H, c1) };
+}
+function clearPaint() {
+  const sets = [[pp1, [0.5, 0.5, 0.5, 1.0]], [pp2, [0.5, 0.5, 0.5, 0.0]], [pp3, [0.5, 0.5, 0.5, 1.0]]];
+  for (const [pp, c] of sets) for (const p of [pp.read, pp.write]) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, p.fbo);
+    gl.clearColor(c[0], c[1], c[2], c[3]);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+// ---- 主流程 ----
+let mainProg, splatProg, M = {}, S = {};
+
+function main(pick) {
+  mainProg = linkProgram(VERT_SRC, FRAG_HEADER + pick.src + FRAG_FOOTER);
+  splatProg = linkProgram(VERT_SRC, SPLAT_SRC);
+  gl.useProgram(mainProg);
+  document.getElementById("srcinfo").textContent = "源码: " + pick.from;
+
+  for (const n of ["iResolution","iTime","iTimeDelta","iFrame","iMouse","iDate","iSampleRate",
+                   "uPaint","uPaint2","uPaint3","uCell","uEdgeLo","uEdgeHi","uJitter","uBevel","uBgWave","uStripe",
+                   "uPal0","uPal1","uPal2","uPal3","uSunSize","uRays","uRayCtrl[0]","uStripeCtrl[0]","uSunBob","uWing","uHueAll"]) {
+    M[n] = gl.getUniformLocation(mainProg, n);
+  }
+  for (const n of ["uPrev","uRes","uMouse","uRadius","uStrength","uTarget","uMode","uHueTarget","uFillIdx","uAmp","uDt","uDelta"]) {
+    S[n] = gl.getUniformLocation(splatProg, n);
+  }
+  gl.uniform1i(M.uPaint, 0);
+  gl.uniform1i(M.uPaint2, 1);
+  gl.uniform1i(M.uPaint3, 2);
+  window.__GLDBG = { gl, prog: mainProg, M }; // 调试探针：可从控制台读取 uniform 实际值
+  gl.useProgram(splatProg);
+  gl.uniform1i(S.uPrev, 0);
+
+  initPaint();
+
+  // ---- 指针（笔刷绘制）----
+  const pointer = { down: false, x: 0, y: 0, lastX: 0, lastY: 0, pendX: 0, pendY: 0 };
+  const cursor = $("brushCursor");
+  function toPaintPx(e) {
+    const r = canvas.getBoundingClientRect();
+    return [
+      (e.clientX - r.left) / r.width * paintW,
+      (1 - (e.clientY - r.top) / r.height) * PAINT_H,
+      r,
+    ];
+  }
+  canvas.addEventListener("pointerdown", e => {
+    // 选了笔刷：只有直接按中句柄圆点才进入曲线编辑；笔刷为「关」：任意拖拽都编辑最近曲线
+    const hit = hitHandle(e.clientX, e.clientY, state.brushMode < 0);
+    window.__dbgLast = { ev: "down", hit: !!hit, type: hit && hit.type, i: hit && hit.i, x: e.clientX, y: e.clientY, brush: state.brushMode, pid: e.pointerId };
+    if (hit) {
+      dragHandle = hit;
+      dragHandle.lastX = e.clientX; dragHandle.lastY = e.clientY;
+      hoverHandle = hit;
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+    const [x, y] = toPaintPx(e);
+    pointer.down = true;
+    pointer.x = pointer.lastX = x; pointer.y = pointer.lastY = y;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  window.addEventListener("pointermove", e => {
+    cursor.style.left = e.clientX + "px";
+    cursor.style.top = e.clientY + "px";
+    if (dragHandle) {
+      const h = canvas.clientHeight;
+      const dx = e.clientX - (dragHandle.lastX ?? e.clientX);
+      const dy = e.clientY - (dragHandle.lastY ?? e.clientY);
+      dragHandle.lastX = e.clientX; dragHandle.lastY = e.clientY;
+      if (dragHandle.type === "ray") {
+        state.rayOff[dragHandle.i] += -dy * 3 / h;
+      } else {
+        state.stripeOff[dragHandle.i] += -(dx - dy) * 2 * state.stripe / h;
+      }
+      window.__dbgLast = { ev: "move", dx, dy, ray: state.rayOff[3], st: state.stripeOff[2] };
+      return;
+    }
+    if (!pointer.down) {
+      hoverHandle = hitHandle(e.clientX, e.clientY);
+      canvas.style.cursor = hoverHandle ? "grab" : "crosshair";
+      return;
+    }
+    const [x, y, r] = toPaintPx(e);
+    pointer.pendX += e.clientX - (pointer.lastCssX ?? e.clientX);
+    pointer.pendY += e.clientY - (pointer.lastCssY ?? e.clientY);
+    pointer.lastCssX = e.clientX; pointer.lastCssY = e.clientY;
+    pointer.x = x; pointer.y = y;
+  });
+  const up = () => { pointer.down = false; dragHandle = null; hoverHandle = null; pointer.pendX = pointer.pendY = 0; };
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+  canvas.addEventListener("pointerenter", () => {
+    if (state.brushMode >= 0) cursor.style.display = "block";
+  });
+  canvas.addEventListener("pointerleave", () => { cursor.style.display = "none"; });
+
+  // ---- 键盘 ----
+  let paused = false, timeBase = 0, tPrev = performance.now(), frame = 0;
+  window.addEventListener("keydown", e => {
+    if (e.code === "Space") { paused = !paused; e.preventDefault(); }
+    else if (e.code === "KeyR") { timeBase = 0; frame = 0; }
+    else if (e.code === "KeyF") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+    else if (e.code === "KeyH") togglePanel();
+  });
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+      sizeCursor();
+    }
+    resizeOverlay();
+    gl.viewport(0, 0, w, h);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+  drawOverlay(); // 初始化句柄数据（后台节流时 rAF 不运行也能立即命中句柄）
+
+  const fpsEl = $("fps");
+  let fpsCount = 0, fpsT0 = performance.now();
+
+  function doSplatPass(pp, target, mode, dt, pointer, pend) {
+    gl.useProgram(splatProg);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pp.write.fbo);
+    gl.viewport(0, 0, paintW, PAINT_H);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, pp.read.tex);
+    gl.uniform2f(S.uRes, paintW, PAINT_H);
+    gl.uniform2f(S.uMouse, pointer.x, pointer.y);
+    gl.uniform1f(S.uRadius, state.brushSize);
+    gl.uniform1f(S.uStrength, state.brushStrength);
+    gl.uniform1i(S.uTarget, target);
+    gl.uniform1i(S.uMode, mode);
+    gl.uniform1f(S.uHueTarget, state.hueTarget * 0.5 + 0.5);
+    gl.uniform1f(S.uFillIdx, (state.fillIdx + 0.5) / 4);
+    gl.uniform1f(S.uAmp, WARP_AMP);
+    gl.uniform1f(S.uDt, dt);
+    const dxUv = pend.x / canvas.clientHeight, dyUv = -pend.y / canvas.clientHeight;
+    let dX = 0, dY = 0;
+    if (mode === 0 || mode === 5 || mode === 7) { dX = dxUv / WARP_AMP * state.brushStrength; dY = dyUv / WARP_AMP * state.brushStrength; }
+    gl.uniform2f(S.uDelta, dX, dY);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    [pp.read, pp.write] = [pp.write, pp.read];
+  }
+
+  function render(now) {
+    const dt = Math.min((now - tPrev) / 1000, 0.1);
+    tPrev = now;
+    if (!paused) { timeBase += dt * state.speed; frame++; }
+
+    resize();
+
+    // 笔刷更新：按模式分发到对应笔刷场
+    if (pointer.down && state.brushMode >= 0) {
+      const pend = { x: pointer.pendX, y: pointer.pendY };
+      const moved = pend.x !== 0 || pend.y !== 0;
+      const m = state.brushMode;
+      if (m === 0 && moved) doSplatPass(pp1, 0, 0, dt, pointer, pend);
+      else if (m === 1) doSplatPass(pp1, 0, 1, dt, pointer, pend);
+      else if (m === 2) doSplatPass(pp1, 0, 2, dt, pointer, pend);
+      else if (m === 3) doSplatPass(pp1, 0, 3, dt, pointer, pend);
+      else if (m === 4) {
+        doSplatPass(pp1, 0, 4, dt, pointer, pend);
+        doSplatPass(pp2, 1, 4, dt, pointer, pend);
+        doSplatPass(pp3, 2, 4, dt, pointer, pend);
+      }
+      else if (m === 5 && moved) doSplatPass(pp2, 1, 5, dt, pointer, pend);
+      else if (m === 6) doSplatPass(pp2, 1, 6, dt, pointer, pend);
+      else if (m === 7 && moved) doSplatPass(pp3, 2, 7, dt, pointer, pend);
+      pointer.pendX = 0; pointer.pendY = 0;
+    }
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(mainProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, pp1.read.tex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, pp2.read.tex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, pp3.read.tex);
+
+    const d = new Date();
+    const lo = 0.003 + state.edge * 0.057;
+    const pal = PALS[state.palIdx].colors;
+    gl.uniform3f(M.iResolution, canvas.width, canvas.height, canvas.width / canvas.height);
+    gl.uniform1f(M.iTime, timeBase);
+    gl.uniform1f(M.iTimeDelta, dt);
+    gl.uniform1i(M.iFrame, frame);
+    gl.uniform4f(M.iMouse, 0, 0, 0, 0);
+    gl.uniform4f(M.iDate, d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds());
+    gl.uniform1f(M.iSampleRate, 44100);
+    gl.uniform1f(M.uCell, state.cell);
+    gl.uniform1f(M.uEdgeLo, lo);
+    gl.uniform1f(M.uEdgeHi, lo * 6);
+    gl.uniform1f(M.uJitter, state.jitter);
+    gl.uniform1f(M.uBevel, state.bevel);
+    gl.uniform1f(M.uBgWave, state.bgWave);
+    gl.uniform1f(M.uStripe, state.stripe);
+    gl.uniform3fv(M.uPal0, pal[0]);
+    gl.uniform3fv(M.uPal1, pal[1]);
+    gl.uniform3fv(M.uPal2, pal[2]);
+    gl.uniform3fv(M.uPal3, pal[3]);
+    gl.uniform1f(M.uSunSize, state.sunSize);
+    gl.uniform1f(M.uRays, state.rays);
+    gl.uniform1fv(M.uRayCtrl, rayCtrlValues());
+    gl.uniform1fv(M.uStripeCtrl, state.stripeOff);
+    gl.uniform1f(M.uSunBob, state.sunBob);
+    gl.uniform1f(M.uWing, state.wing);
+    gl.uniform1f(M.uHueAll, state.hue);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    const dtf = (timeBase * 0.25) % 1, aa = Math.abs(-1 + 2 * dtf);
+    curBob = (aa < 0.5 ? 2 * aa * aa : 1 - Math.pow(-2 * aa + 2, 2) / 2) * state.sunBob;
+    drawOverlay();
+    window.__dbgField = { ray: state.rayOff.slice(), stripe: state.stripeOff.slice(), t: Date.now() };
+
+    fpsCount++;
+    if (now - fpsT0 >= 500) {
+      fpsEl.textContent = ((fpsCount * 1000) / (now - fpsT0)).toFixed(0) + " FPS" + (paused ? " · 已暂停" : "");
+      fpsCount = 0; fpsT0 = now;
+    }
+    lastRenderT = now;
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+  // 看门狗：被遮挡/后台等导致 rAF 暂停时，兜底驱动渲染（保证拖拽句柄始终有画面反馈）
+  let lastRenderT = 0;
+  setInterval(() => {
+    const now = performance.now();
+    if (now - lastRenderT > 120) render(now);
+  }, 50);
+}
+
+loadShaderSource().then(main).catch(e => fail(String(e)));
+</script>
+</body>
+</html>

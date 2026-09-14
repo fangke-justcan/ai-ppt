@@ -1,0 +1,8 @@
+# 系统垃圾文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 临时文件
+_tmp_*
+*.log
