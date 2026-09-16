@@ -486,8 +486,32 @@
     </div>
   </section>
 
-  <!-- 25 · 结尾（无文字，反相空页） -->
+  <!-- 25 · 小组展示网页 -->
+  <section class="slide">
+    <div class="anim d1" style="font-family:var(--light); font-weight:400; font-size:42px; letter-spacing:.3em; color:var(--muted); margin-left:58px;">小组任务</div>
+    <h2 class="title anim d2" style="font-size:54px; margin-top:30px;">每个小组做一个<span style="color:var(--acc);">展示网页</span></h2>
+    <p class="anim d3" style="margin-top:26px; font-size:21px; color:var(--muted);">像本课程的 PPT 一样 ——</p>
+    <div class="anim d4" style="margin-top:30px; display:flex; flex-direction:column; gap:24px; font-size:24px; line-height:1.6;">
+      <p>在一个网页中<em class="acc" style="font-weight:700;">融合三个项目</em>，全部可以实时操作</p>
+      <p>写出<span style="color:var(--acc); font-weight:700;">小组整体的情绪目标</span></p>
+      <p>加上你们的<span style="color:var(--acc); font-weight:700;">作品介绍</span></p>
+    </div>
+  </section>
+
+  <!-- 26 · 方法步骤 -->
+  <section class="slide noborder compact">
+    <h2 class="title anim d1">做的方法步骤</h2>
+    <div class="rows" style="max-width:1080px;">
+      <div class="row anim d2"><span class="no">1</span><p>每个人的项目上传 <b>GitHub</b>，并且让 AI 出 GitHub 链接</p></div>
+      <div class="row anim d3"><span class="no">2</span><p>小组代表建立一个文件夹，给 AI 三个项目的 GitHub 链接，并让 AI 在这个文件夹中克隆这几个项目</p></div>
+      <div class="row anim d4"><span class="no">3</span><p>让 AI 基于三个项目生成展示网页，<b>网页细节由小组给出提示词</b></p></div>
+      <div class="row anim d5"><span class="no">4</span><p>测试：某个成员的项目做一个更新并推送到 GitHub 线上后，看小组网页能否拉取最新并更新 —— <em class="acc">如果可以，整个流程就完成了</em></p></div>
+    </div>
+  </section>
+
+  <!-- 27 · 结尾（无文字，反相空页） -->
   <section class="slide s-end dark" style="display:flex; flex-direction:column; justify-content:center; align-items:center;">
+    <div class="fg" style="color:#8a8a8a; font-family:var(--light); font-size:42px; letter-spacing:.3em;">END</div>
   </section>
 
   <!-- 评论图层（不参与翻页） -->
@@ -513,7 +537,7 @@
 (function () {
   const slides = Array.from(document.querySelectorAll('.slide'));
   const total = slides.length;
-  const titles = ['封面','AI时代 人应该做什么','ilya 引言','以AI，重做人','课程目标','课程目标：以AI，重做人','课程作业','Your Art，Your Tool','两周工作坊','分组','每组三人','情感目标','Phase 1 · Make a copy','情感目标 · 最简路径','Phase 2 · 参数slider','Phase 2 · sphere->cube','Phase 2 · 紫金花','Phase 2 · 交互教材','Phase 2 · 自制笔刷','版本管理 · 版本馆','同时开发 · worktree','发布 · github page','两条路径','下周安排','结尾'];
+  const titles = ['封面','AI时代 人应该做什么','ilya 引言','以AI，重做人','课程目标','课程目标：以AI，重做人','课程作业','Your Art，Your Tool','两周工作坊','分组','每组三人','情感目标','Phase 1 · Make a copy','情感目标 · 最简路径','Phase 2 · 参数slider','Phase 2 · sphere->cube','Phase 2 · 紫金花','Phase 2 · 交互教材','Phase 2 · 自制笔刷','版本管理 · 版本馆','同时开发 · worktree','发布 · github page','两条路径','下周安排','小组展示网页','方法步骤','结尾'];
   const liveTitles = {7:'LIVE',13:'LIVE',15:'LIVE',16:'LIVE',17:'LIVE',18:'LIVE',19:'LIVE',20:'LIVE'};
 
   let cur = -1;
