@@ -337,14 +337,14 @@
   <!-- 14 · Phase 1: Make a copy（Night Drive 实时演示） -->
   <section class="slide practice noborder">
     <div class="left">
-      <h2 class="title anim d1">Workshop Phase 1<br><span class="en-sub" style="font-size:37px;">Make a copy</span></h2>
+      <h2 class="title anim d1" style="color:#1c4e89;">Workshop Phase 1<br><span class="en-sub" style="font-size:37px; color:#1c4e89;">Make a copy</span></h2>
       <div class="steps">
-        <div class="row anim d2"><span class="no">1</span><p>安装zcode，领取glm-lite，然后选择glm53flash （你如果有条件，可以使用codex+gpt6）</p></div>
-        <div class="row anim d3"><span class="no">2</span><p>在shadertoy上复刻一个效果（随便选择一个），提示词为：<br><span class="prompt-chip">请你帮我在本地复刻一个这个：<a href="https://www.shadertoy.com/view/MdfBRX" target="_blank" rel="noopener">shadertoy.com/view/MdfBRX</a></span></p></div>
-        <div class="row anim d4"><span class="no">3</span><p>观察AI的思考过程。如果AI说你的环境中没有<code>Python</code>。<code>Node.js</code>，<em class="acc">强烈建议先暂停</em>，然后和AI对话问他，你能否帮我装好<code>Python</code>/<code>Node.js</code></p></div>
-        <div class="row anim d5"><span class="no">4</span><p>等待AI复刻好，让ai帮你打开。</p></div>
+        <div class="row anim d2"><span class="no" style="background:#eef3fb; color:#1c4e89;">1</span><p style="font-weight:700; color:var(--ink);">安装zcode，领取glm-lite，然后选择glm53flash （你如果有条件，可以使用codex+gpt6）</p></div>
+        <div class="row anim d3"><span class="no" style="background:#eef3fb; color:#1c4e89;">2</span><p style="color:#1c4e89;">在shadertoy上复刻一个效果（随便选择一个），提示词为：<br><span class="prompt-chip">请你帮我在本地复刻一个这个：<a href="https://www.shadertoy.com/view/MdfBRX" target="_blank" rel="noopener">shadertoy.com/view/MdfBRX</a></span></p></div>
+        <div class="row anim d4"><span class="no" style="background:#eef3fb; color:#1c4e89;">3</span><p style="color:#1c4e89;">观察AI的思考过程。如果AI说你的环境中没有<code>Python</code>。<code>Node.js</code>，<em class="acc" style="color:#1c4e89;">强烈建议先暂停</em>，然后和AI对话问他，你能否帮我装好<code>Python</code>/<code>Node.js</code></p></div>
+        <div class="row anim d5"><span class="no" style="background:#eef3fb; color:#1c4e89;">4</span><p style="color:#1c4e89;">等待AI复刻好，让ai帮你打开。</p></div>
       </div>
-      <div class="srclink anim d5">Night Drive · <a href="https://www.shadertoy.com/view/MdfBRX" target="_blank" rel="noopener">原网址 shadertoy.com/view/MdfBRX ↗</a></div>
+      <div class="srclink anim d5" style="color:#1c4e89;">Night Drive · <a href="https://www.shadertoy.com/view/MdfBRX" target="_blank" rel="noopener" style="color:#1c4e89; border-bottom-color:rgba(28,78,137,.4);">原网址 shadertoy.com/view/MdfBRX ↗</a></div>
     </div>
     <div class="demo anim d2" data-src="night-drive/index.html">
       <a class="openlink" href="night-drive/index.html" target="_blank" rel="noopener">↗ 新窗口打开</a>
@@ -904,6 +904,156 @@
   const h = parseInt(location.hash.slice(1), 10);
   goTo(isNaN(h) ? 0 : h - 1);
   loadComments();
+})();
+</script>
+
+<!-- =============== Project2Agent 控制台（灵魂在 project2agent/SKILL.md，经 ppt-server 的 /agent 桥驱动） =============== -->
+<style>
+  #agentFab{
+    position:fixed;right:18px;bottom:16px;z-index:95;display:flex;align-items:center;gap:8px;
+    background:#0d0d0d;color:#fff;border:1px solid #2c2c2c;border-radius:999px;
+    font:12px/1 "DengXian",sans-serif;letter-spacing:.14em;padding:9px 16px;cursor:pointer;opacity:.82;
+  }
+  #agentFab:hover{opacity:1;border-color:#EB7081}
+  #agentFab .dot{width:7px;height:7px;border-radius:50%;background:#EB7081}
+  #agentPanel{
+    position:fixed;right:18px;bottom:16px;z-index:96;width:340px;max-height:62vh;
+    display:none;flex-direction:column;background:rgba(13,13,13,.96);color:#fff;
+    border:1px solid #2c2c2c;font-family:"DengXian","DengXian Light",sans-serif;
+  }
+  #agentPanel.open{display:flex}
+  #agentPanel header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 14px;border-bottom:1px solid #2c2c2c;
+  }
+  #agentPanel header .t{font-size:11px;letter-spacing:.3em;color:#999}
+  #agentPanel header .t b{color:#EB7081;font-weight:400}
+  #agentPanel header button{background:none;border:none;color:#777;font-size:15px;cursor:pointer;padding:0 2px}
+  #agentPanel header button:hover{color:#EB7081}
+  #agentMsgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:120px}
+  .am{font-size:13px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+  .am .who{display:block;font-size:10px;letter-spacing:.22em;color:#666;margin-bottom:3px}
+  .am.user .who{color:#EB7081}
+  .am.sys{color:#888;font-size:11.5px}
+  #agentInputRow{display:flex;gap:6px;padding:10px;border-top:1px solid #2c2c2c}
+  #agentInput{
+    flex:1;background:#1a1a1a;border:1px solid #2c2c2c;color:#fff;outline:none;
+    font:13px/1.5 "DengXian",sans-serif;padding:8px 10px;border-radius:2px;
+  }
+  #agentInput:focus{border-color:#EB7081}
+  #agentMic,#agentSend{
+    background:#1a1a1a;border:1px solid #2c2c2c;color:#bbb;cursor:pointer;
+    font-size:12px;padding:0 12px;border-radius:2px;letter-spacing:.05em;
+  }
+  #agentMic.rec{color:#fff;background:#EB7081;border-color:#EB7081}
+  #agentSend:hover,#agentMic:hover{border-color:#EB7081;color:#fff}
+  #agentHint{padding:0 14px 9px;font-size:10.5px;color:#555;letter-spacing:.05em}
+  #agentToast{
+    position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:97;
+    background:rgba(13,13,13,.92);color:#fff;border-left:2px solid #EB7081;
+    font:13px/1.6 "DengXian",sans-serif;padding:10px 18px;max-width:70vw;display:none;
+  }
+</style>
+<div id="agentFab" title="Project2Agent（快捷键 A）"><span class="dot"></span>AGENT</div>
+<div id="agentPanel">
+  <header><span class="t">PROJECT<b>2</b>AGENT · 本课件的虚拟助教</span><button id="agentClose" title="收起">×</button></header>
+  <div id="agentMsgs"></div>
+  <div id="agentInputRow">
+    <input id="agentInput" placeholder="问点什么…（回车发送）" autocomplete="off">
+    <button id="agentMic" title="语音输入（Edge 下可用，或按 Win+H 系统听写）">MIC</button>
+    <button id="agentSend" title="发送">送</button>
+  </div>
+  <div id="agentHint">提问由工作区里的 ZCode 会话应答（project2agent/SKILL.md）</div>
+</div>
+<div id="agentToast"></div>
+<script>
+(function () {
+  const fab = document.getElementById('agentFab'), panel = document.getElementById('agentPanel');
+  const msgs = document.getElementById('agentMsgs'), input = document.getElementById('agentInput');
+  const mic = document.getElementById('agentMic'), toast = document.getElementById('agentToast');
+  const hasServer = location.protocol.startsWith('http');
+
+  function addMsg(role, text) {
+    const d = document.createElement('div');
+    d.className = 'am ' + role;
+    const who = role === 'user' ? '你' : role === 'agent' ? 'AGENT' : '';
+    d.innerHTML = (who ? '<span class="who">' + who + '</span>' : '') ;
+    d.appendChild(document.createTextNode(text));
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+    while (msgs.children.length > 60) msgs.removeChild(msgs.firstChild);
+  }
+  function showToast(text) {
+    toast.textContent = text; toast.style.display = 'block';
+    clearTimeout(toast._t); toast._t = setTimeout(() => toast.style.display = 'none', 6000);
+  }
+  function togglePanel(force) {
+    const open = force !== undefined ? force : !panel.classList.contains('open');
+    panel.classList.toggle('open', open);
+    fab.style.display = open ? 'none' : 'flex';
+    if (open) input.focus();
+  }
+  fab.onclick = () => togglePanel(true);
+  document.getElementById('agentClose').onclick = () => togglePanel(false);
+  document.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
+    if (e.key === 'a' || e.key === 'A') { togglePanel(); e.preventDefault(); }
+  });
+
+  /* 提问 → 收件箱（由 ZCode 会话取走应答） */
+  function send() {
+    const t = input.value.trim();
+    if (!t) return;
+    input.value = '';
+    addMsg('user', t);
+    if (!hasServer) { addMsg('sys', '当前是 file:// 打开，无法连接 Agent 桥。请双击「启动HTML版PPT.bat」。'); return; }
+    fetch('/agent/ask', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: t, page: (typeof cur === 'number' ? cur : 0) + 1 })
+    }).catch(() => addMsg('sys', 'Agent 桥未连接：请启动 ppt-server.js 并在 ZCode 会话里打开 project2agent/SKILL.md。'));
+  }
+  document.getElementById('agentSend').onclick = send;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+  /* 语音：优先 Web Speech（Edge 下国内可用），不可用提示 Win+H */
+  let rec = null, recognizing = false;
+  mic.onclick = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { addMsg('sys', '此浏览器不支持网页语音。按 Win+H 用系统听写进输入框，效果相同。'); return; }
+    if (recognizing) { rec.stop(); return; }
+    rec = new SR(); rec.lang = 'zh-CN'; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onstart = () => { recognizing = true; mic.classList.add('rec'); };
+    rec.onend = () => { recognizing = false; mic.classList.remove('rec'); };
+    rec.onerror = ev => {
+      recognizing = false; mic.classList.remove('rec');
+      addMsg('sys', ev.error === 'not-allowed' ? '麦克风权限被拒绝。' :
+        '语音识别不可用（' + ev.error + '）。备选：按 Win+H 系统听写，或直接打字。');
+    };
+    rec.onresult = ev => {
+      const t = ev.results[0][0].transcript.trim();
+      if (t) { input.value = t; send(); }
+    };
+    try { rec.start(); } catch (e) {}
+  };
+
+  /* 轮询指令：goto / say / toast（ZCode 经 /agent/commands 下发） */
+  function runCmd(c) {
+    if (c.type === 'goto') {
+      const i = (Number(c.page) || 1) - 1;
+      if (typeof goTo === 'function') { goTo(i); showToast('AGENT → 第 ' + (i + 1) + ' 页 · ' + (typeof titles !== 'undefined' && titles[i] ? titles[i] : '')); }
+    } else if (c.type === 'say') {
+      togglePanel(true);
+      addMsg('agent', c.text);
+    } else if (c.type === 'toast') {
+      showToast(c.text);
+    }
+  }
+  function poll() {
+    if (!hasServer) return;
+    fetch('/agent/poll').then(r => r.json()).then(j => (j.cmds || []).forEach(runCmd)).catch(() => {});
+  }
+  setInterval(poll, 1600); poll();
+  if (!hasServer) fab.title = 'file:// 下不可用，请用 启动HTML版PPT.bat';
 })();
 </script>
 </body>
